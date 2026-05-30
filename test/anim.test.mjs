@@ -426,8 +426,10 @@ ok('loadPack(slime) manifest validates', validateManifest(slimePack.manifest).le
 
 const beanPack = loadPack('bean');
 ok('loadPack(bean) → name bean', beanPack.name === 'bean');
-ok('loadPack(bean) is a sheet-less stub (sheetPath null)', beanPack.sheetPath === null);
+ok('loadPack(bean) resolves its own sheet (a real 2nd pet)', /sheet\.png$/.test(beanPack.sheetPath || ''));
 ok('loadPack(bean) validates against the same schema', validateManifest(beanPack.manifest).length === 0);
+ok('bean REUSES the slime animation library (same clips)', JSON.stringify(Object.keys(beanPack.manifest.clips)) === JSON.stringify(Object.keys(slimePack.manifest.clips)));
+ok('bean is re-skinned (different base color)', beanPack.manifest.palettes.calm.base !== slimePack.manifest.palettes.calm.base);
 
 console.log('  · resolvePetName honours ANIMAYTE_PET');
 ok('default pet is slime', resolvePetName({}) === 'slime');

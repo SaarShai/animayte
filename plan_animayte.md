@@ -410,7 +410,15 @@ on his screen, sound cuteness, personality "vibes." Queue these in §11 "For Saa
 **Phase 4:** ☑ C5 ☑ C7 ☑ C8  ← Phase 4 COMPLETE · **ALL 21 MILESTONES DONE**
 
 `npm test` last status: **PASS — 725 checks** (279 engine + 112 conformance + 93 doc-lint + 188 detection/consistency + 53 e2e) · Branch: `feat/anim-engine`
-**Backlog progress (post-milestone):** ✅ daemon hardening/fuzz (§9.6 — malformed JSON, 60-spawn flood→cap 5, relief mid-flood, SubagentStop underflow, mood thrash; +10 e2e checks).
+**Backlog progress (post-milestone):**
+- ✅ daemon hardening/fuzz (§9.6 — malformed JSON, 60-spawn flood→cap 5, relief mid-flood, SubagentStop underflow, mood thrash; +10 e2e checks).
+- ✅ **2nd full pet pack (`bean`, amber)** — THE reuse proof. Extracted the face library to
+  `tools/draw-faces.mjs` (`makeFaceLib(P)`, palette-parameterised) — slime stays BYTE-IDENTICAL.
+  `buildBeanManifest()` re-skins the slime's *entire* animation library (same expressions/clips/
+  props/reactions/idle) with an amber palette. New `drawBean` body (rounded egg) + the SHARED face
+  lib. Validated LIVE: `ANIMAYTE_PET=bean ANIMAYTE_PERSONALITY=chipper` loads via the pack loader and
+  renders the amber bean with identical face craft + an orbiting bird. Proves G2/G3: the library
+  drops onto any design.
 Validated live via Preview MCP: thinking/excited/tired (indexed swap)/sleepy; tool gags reading(glasses)/asking(?+head-tilt)/running(dust) — all render correctly; SSE round-trip works; 0 console errors.
 
 ---

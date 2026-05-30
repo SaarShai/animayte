@@ -2,8 +2,22 @@
   "format": "animayte-pet/1",
   "name": "bean",
   "cell": 64,
-  "anchor": [0.5, 1],
-  "layers": ["shadow", "outline", "body", "eyes", "mouth", "brows"],
+  "anchor": [
+    0.5,
+    1
+  ],
+  "sheet": "sheet.png",
+  "propSheet": "props.png",
+  "propCell": 24,
+  "layers": [
+    "shadow",
+    "outline",
+    "body",
+    "eyes",
+    "mouth",
+    "brows",
+    "prop"
+  ],
   "palettes": {
     "calm": {
       "shadowCool": "#7A4A12",
@@ -12,50 +26,955 @@
       "highlight": "#F6E0A0",
       "rim": "#FFF4D0",
       "outline": "#5A3E16",
+      "halo": "#FFFFFF4D",
       "dropShadow": "#3A280E59",
       "eyeDark": "#5A3E16",
-      "catchlight": "#FFF7E6"
+      "catchlight": "#FFF7E6",
+      "blush": "#F6757A"
+    },
+    "tired": {
+      "shadowCool": "#5E5640",
+      "shadow": "#8C8262",
+      "base": "#BDB48C",
+      "highlight": "#DCD6B4",
+      "rim": "#EFEAD2",
+      "outline": "#3E3826",
+      "halo": "#FFFFFF40",
+      "dropShadow": "#2A261859",
+      "eyeDark": "#3E3826",
+      "catchlight": "#F4F0E2",
+      "blush": "#D69BA0"
+    },
+    "error": {
+      "shadowCool": "#5A1E22",
+      "shadow": "#8E2C30",
+      "base": "#E04A4A",
+      "highlight": "#F58A6A",
+      "rim": "#FDE0C0",
+      "outline": "#3A1416",
+      "halo": "#FFFFFF4D",
+      "dropShadow": "#2A0E1059",
+      "eyeDark": "#3A1416",
+      "catchlight": "#FFF0E8",
+      "blush": "#FF9BA0"
     }
   },
   "defaultPalette": "calm",
+  "accentColors": {
+    "warm": "#FEE761",
+    "alert": "#E43B44",
+    "neutral": "#3A4466",
+    "sweat": "#7DC6FF",
+    "white": "#FFFFFF"
+  },
   "expressions": {
-    "neutral": { "eyes": "dots", "mouth": "slight_smile" },
-    "happy": { "eyes": "happy_arc", "mouth": "open_smile" },
-    "thinking": { "eyes": "look_up", "brows": "one_raised", "mouth": "flat_skew" },
-    "sad": { "eyes": "open", "brows": "sad", "mouth": "frown" },
-    "sleepy": { "eyes": "closed", "mouth": "small", "accents": ["zzz"] }
+    "neutral": {
+      "eyes": "dots",
+      "mouth": "slight_smile"
+    },
+    "thinking": {
+      "eyes": "look_up",
+      "mouth": "flat_skew",
+      "brows": "one_raised"
+    },
+    "happy": {
+      "eyes": "happy_arc",
+      "mouth": "open_smile",
+      "accents": [
+        "blush"
+      ]
+    },
+    "excited": {
+      "eyes": "stars",
+      "mouth": "big_grin",
+      "accents": [
+        "blush"
+      ]
+    },
+    "oops": {
+      "eyes": "open",
+      "mouth": "awkward",
+      "brows": "worried",
+      "accents": [
+        "sweat"
+      ]
+    },
+    "embarrassed": {
+      "eyes": "wide",
+      "mouth": "small",
+      "accents": [
+        "flush"
+      ]
+    },
+    "sad": {
+      "eyes": "open",
+      "mouth": "frown",
+      "brows": "sad"
+    },
+    "sleepy": {
+      "eyes": "closed",
+      "mouth": "small",
+      "accents": [
+        "zzz"
+      ]
+    }
   },
   "clips": {
     "idle": {
       "loop": true,
-      "frames": [{ "dur": 500 }, { "dur": 500 }],
+      "frames": [
+        {
+          "dur": 460,
+          "cell": 0
+        },
+        {
+          "dur": 460,
+          "cell": 1
+        },
+        {
+          "dur": 460,
+          "cell": 2
+        },
+        {
+          "dur": 460,
+          "cell": 1
+        }
+      ],
       "tracks": {
         "body": [
-          { "t": 0, "sy": 1 },
-          { "t": 0.5, "sy": 1.04, "ease": "easeInOutSine" },
-          { "t": 1, "sy": 1, "ease": "easeInOutSine" }
+          {
+            "t": 0,
+            "sy": 1,
+            "ty": 0
+          },
+          {
+            "t": 0.5,
+            "sy": 1.03,
+            "ty": -1,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 1,
+            "sy": 1,
+            "ty": 0,
+            "ease": "easeInOutSine"
+          }
         ]
       }
     },
+    "blink": {
+      "loop": false,
+      "frames": [
+        {
+          "dur": 110,
+          "cell": 3
+        }
+      ]
+    },
     "react": {
       "loop": false,
-      "frames": [{ "dur": 90 }, { "dur": 130 }, { "dur": 160 }],
+      "frames": [
+        {
+          "dur": 80,
+          "cell": 0
+        },
+        {
+          "dur": 110,
+          "cell": 1
+        },
+        {
+          "dur": 140,
+          "cell": 2
+        },
+        {
+          "dur": 160,
+          "cell": 1
+        }
+      ],
       "tracks": {
         "body": [
-          { "t": 0, "sy": 0.9, "ease": "easeOutQuad" },
-          { "t": 0.5, "sy": 1.12, "ease": "easeOutBack" },
-          { "t": 1, "sy": 1, "ease": "easeOutBounce" }
+          {
+            "t": 0,
+            "sy": 1
+          },
+          {
+            "t": 0.2,
+            "sy": 0.88,
+            "ease": "easeOutQuad"
+          },
+          {
+            "t": 0.5,
+            "sy": 1.16,
+            "ease": "easeOutBack"
+          },
+          {
+            "t": 1,
+            "sy": 1,
+            "ease": "easeOutBounce"
+          }
+        ]
+      }
+    },
+    "sway": {
+      "loop": false,
+      "frames": [
+        {
+          "dur": 230,
+          "cell": 0
+        },
+        {
+          "dur": 230,
+          "cell": 1
+        },
+        {
+          "dur": 230,
+          "cell": 2
+        },
+        {
+          "dur": 230,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "tx": 0,
+            "rot": 0
+          },
+          {
+            "t": 0.3,
+            "tx": -3,
+            "rot": -0.05,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 0.7,
+            "tx": 3,
+            "rot": 0.05,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 1,
+            "tx": 0,
+            "rot": 0,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "stretch": {
+      "loop": false,
+      "frames": [
+        {
+          "dur": 260,
+          "cell": 1
+        },
+        {
+          "dur": 300,
+          "cell": 2
+        },
+        {
+          "dur": 300,
+          "cell": 2
+        },
+        {
+          "dur": 240,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "sy": 1
+          },
+          {
+            "t": 0.45,
+            "sy": 1.12,
+            "ty": -2,
+            "ease": "easeOutQuad"
+          },
+          {
+            "t": 1,
+            "sy": 1,
+            "ty": 0,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "bounce": {
+      "loop": false,
+      "frames": [
+        {
+          "dur": 120,
+          "cell": 0
+        },
+        {
+          "dur": 150,
+          "cell": 2
+        },
+        {
+          "dur": 150,
+          "cell": 1
+        },
+        {
+          "dur": 140,
+          "cell": 0
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "sy": 1,
+            "ty": 0
+          },
+          {
+            "t": 0.2,
+            "sy": 0.9,
+            "ease": "easeOutQuad"
+          },
+          {
+            "t": 0.5,
+            "sy": 1.08,
+            "ty": -7,
+            "ease": "easeOutQuad"
+          },
+          {
+            "t": 1,
+            "sy": 1,
+            "ty": 0,
+            "ease": "easeOutBounce"
+          }
+        ]
+      }
+    },
+    "doze": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 900,
+          "cell": 3
+        },
+        {
+          "dur": 900,
+          "cell": 3
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "sy": 1,
+            "ty": 0
+          },
+          {
+            "t": 0.5,
+            "sy": 0.97,
+            "ty": 1,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 1,
+            "sy": 1,
+            "ty": 0,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "reading": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 380,
+          "cell": 0
+        },
+        {
+          "dur": 380,
+          "cell": 1
+        },
+        {
+          "dur": 380,
+          "cell": 2
+        },
+        {
+          "dur": 380,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "ty": 2,
+            "tx": -1
+          },
+          {
+            "t": 0.5,
+            "ty": 3,
+            "tx": 1,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 1,
+            "ty": 2,
+            "tx": -1,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "searching": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 300,
+          "cell": 0
+        },
+        {
+          "dur": 300,
+          "cell": 1
+        },
+        {
+          "dur": 300,
+          "cell": 2
+        },
+        {
+          "dur": 300,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "tx": -3,
+            "rot": -0.05
+          },
+          {
+            "t": 0.5,
+            "tx": 3,
+            "rot": 0.05,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 1,
+            "tx": -3,
+            "rot": -0.05,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "writing": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 140,
+          "cell": 0
+        },
+        {
+          "dur": 140,
+          "cell": 1
+        },
+        {
+          "dur": 140,
+          "cell": 2
+        },
+        {
+          "dur": 140,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "ty": 0
+          },
+          {
+            "t": 0.25,
+            "ty": 1.6,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 0.5,
+            "ty": 0,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 0.75,
+            "ty": 1.6,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 1,
+            "ty": 0,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "running": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 90,
+          "cell": 0
+        },
+        {
+          "dur": 90,
+          "cell": 2
+        },
+        {
+          "dur": 90,
+          "cell": 1
+        },
+        {
+          "dur": 90,
+          "cell": 0
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "ty": 0,
+            "tx": 0
+          },
+          {
+            "t": 0.25,
+            "ty": -3,
+            "tx": -1,
+            "ease": "easeOutQuad"
+          },
+          {
+            "t": 0.5,
+            "ty": 0,
+            "tx": 0,
+            "ease": "easeInQuad"
+          },
+          {
+            "t": 0.75,
+            "ty": -3,
+            "tx": 1,
+            "ease": "easeOutQuad"
+          },
+          {
+            "t": 1,
+            "ty": 0,
+            "tx": 0,
+            "ease": "easeInQuad"
+          }
+        ]
+      }
+    },
+    "installing": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 300,
+          "cell": 0
+        },
+        {
+          "dur": 300,
+          "cell": 1
+        },
+        {
+          "dur": 300,
+          "cell": 2
+        },
+        {
+          "dur": 300,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "tx": 0
+          },
+          {
+            "t": 0.5,
+            "tx": 1,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 1,
+            "tx": 0,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "asking": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 420,
+          "cell": 0
+        },
+        {
+          "dur": 420,
+          "cell": 1
+        },
+        {
+          "dur": 420,
+          "cell": 2
+        },
+        {
+          "dur": 420,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "rot": 0,
+            "tx": 0
+          },
+          {
+            "t": 0.4,
+            "rot": 0.11,
+            "tx": 1,
+            "ease": "easeOutQuad"
+          },
+          {
+            "t": 1,
+            "rot": 0.11,
+            "tx": 1,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "waiting": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 500,
+          "cell": 0
+        },
+        {
+          "dur": 500,
+          "cell": 1
+        },
+        {
+          "dur": 500,
+          "cell": 2
+        },
+        {
+          "dur": 500,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "tx": 0
+          },
+          {
+            "t": 0.5,
+            "tx": -1,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 1,
+            "tx": 0,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "testing": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 150,
+          "cell": 0
+        },
+        {
+          "dur": 150,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "tx": -1
+          },
+          {
+            "t": 0.5,
+            "tx": 1,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 1,
+            "tx": -1,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "committing": {
+      "loop": false,
+      "frames": [
+        {
+          "dur": 110,
+          "cell": 0
+        },
+        {
+          "dur": 130,
+          "cell": 2
+        },
+        {
+          "dur": 170,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "sy": 1,
+            "ty": 0
+          },
+          {
+            "t": 0.3,
+            "sy": 0.84,
+            "ty": 3,
+            "ease": "easeOutQuad"
+          },
+          {
+            "t": 1,
+            "sy": 1,
+            "ty": 0,
+            "ease": "easeOutBounce"
+          }
         ]
       }
     }
   },
-  "props": {},
-  "reactions": {},
+  "props": {
+    "glasses": {
+      "cell": 0,
+      "anchor": [
+        0.5,
+        0.42
+      ],
+      "pop": 2
+    },
+    "magnifier": {
+      "cell": 1,
+      "anchor": [
+        0.72,
+        0.5
+      ],
+      "pop": 2
+    },
+    "pencil": {
+      "cell": 2,
+      "anchor": [
+        0.74,
+        0.56
+      ],
+      "pop": 2
+    },
+    "book": {
+      "cell": 3,
+      "anchor": [
+        0.72,
+        0.52
+      ],
+      "pop": 2
+    },
+    "exclaim": {
+      "cell": 4,
+      "anchor": [
+        0.8,
+        0.14
+      ],
+      "pop": 2
+    },
+    "question": {
+      "cell": 5,
+      "anchor": [
+        0.82,
+        0.12
+      ],
+      "pop": 2
+    },
+    "ellipsis": {
+      "cell": 6,
+      "anchor": [
+        0.84,
+        0.18
+      ],
+      "pop": 2
+    },
+    "sparkle": {
+      "cell": 7,
+      "anchor": [
+        0.24,
+        0.16
+      ],
+      "pop": 2
+    },
+    "idea": {
+      "cell": 8,
+      "anchor": [
+        0.5,
+        0.04
+      ],
+      "pop": 2
+    },
+    "heart": {
+      "cell": 9,
+      "anchor": [
+        0.76,
+        0.14
+      ],
+      "pop": 2
+    },
+    "check": {
+      "cell": 10,
+      "anchor": [
+        0.78,
+        0.16
+      ],
+      "pop": 2
+    },
+    "zzz": {
+      "cell": 11,
+      "anchor": [
+        0.74,
+        0.1
+      ],
+      "pop": 2
+    },
+    "steam": {
+      "cell": 12,
+      "anchor": [
+        0.5,
+        0.06
+      ],
+      "pop": 2
+    },
+    "dust": {
+      "cell": 13,
+      "anchor": [
+        0.5,
+        0.95
+      ],
+      "pop": 2
+    }
+  },
+  "reactions": {
+    "Reading": {
+      "clip": "reading",
+      "expression": "thinking",
+      "prop": "glasses",
+      "palette": "calm",
+      "priority": 2,
+      "return": "idle"
+    },
+    "Searching": {
+      "clip": "searching",
+      "expression": "thinking",
+      "prop": "magnifier",
+      "palette": "calm",
+      "priority": 2,
+      "return": "idle"
+    },
+    "Writing": {
+      "clip": "writing",
+      "expression": "thinking",
+      "prop": "pencil",
+      "palette": "calm",
+      "priority": 2,
+      "return": "idle"
+    },
+    "Running": {
+      "clip": "running",
+      "expression": "thinking",
+      "prop": "dust",
+      "palette": "calm",
+      "priority": 2,
+      "return": "idle"
+    },
+    "Testing": {
+      "clip": "testing",
+      "expression": "oops",
+      "prop": "ellipsis",
+      "palette": "calm",
+      "priority": 2,
+      "return": "idle"
+    },
+    "Installing": {
+      "clip": "installing",
+      "expression": "neutral",
+      "prop": "ellipsis",
+      "palette": "calm",
+      "priority": 2,
+      "return": "idle"
+    },
+    "Committing": {
+      "clip": "committing",
+      "expression": "happy",
+      "prop": "check",
+      "palette": "calm",
+      "priority": 3,
+      "return": "idle"
+    },
+    "Asking": {
+      "clip": "asking",
+      "expression": "thinking",
+      "prop": "question",
+      "palette": "calm",
+      "priority": 3,
+      "return": "idle"
+    },
+    "Waiting": {
+      "clip": "waiting",
+      "expression": "neutral",
+      "prop": "ellipsis",
+      "palette": "calm",
+      "priority": 1,
+      "return": "idle"
+    },
+    "Idea": {
+      "clip": "react",
+      "expression": "excited",
+      "prop": "idea",
+      "palette": "calm",
+      "priority": 4,
+      "return": "idle"
+    }
+  },
   "idle": {
     "base": "idle",
-    "blink": { "minMs": 3000, "maxMs": 6000 },
-    "secondary": [],
+    "blink": {
+      "minMs": 3000,
+      "maxMs": 6000
+    },
+    "secondary": [
+      "sway",
+      "stretch",
+      "bounce"
+    ],
+    "boredClip": "doze",
     "boredAfterMs": 30000
   },
-  "note": "Stub pack: proves the animayte-pet/1 format is reusable by a second design. Art (sheet) is a follow-up; the loader resolves it as a sheet-less pack for now."
+  "source": {
+    "expressions": "lib/expressions.mjs",
+    "generatedBy": "lib/anim/manifest.mjs#buildBeanManifest",
+    "reuses": "slime"
+  }
 }

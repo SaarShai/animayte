@@ -22,6 +22,7 @@ import { listPacks, loadPack, resolvePetName, DEFAULT_PETS_DIR } from '../lib/an
 import { classifyTool } from '../lib/anim/events.mjs';
 import { replaySession, SESSIONS, summarize } from '../tools/simulate.mjs';
 import { loadPersonality, resolvePersonality, weightFor, DEFAULT_PERSONALITY } from '../lib/anim/personality.mjs';
+import { createMoodMeter } from '../lib/anim/mood.mjs';
 import { EXPRESSIONS } from '../lib/expressions.mjs';
 import { readFileSync, writeFileSync, mkdtempSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -506,6 +507,29 @@ ok('chipper bounces far more than grumpy (weights honored)', chip.bounceFrac > g
 ok('grumpy leans (sway) more than it bounces', grump.swayFrac > grump.bounceFrac);
 ok('adaptive is balanced between chipper and grumpy bounce-rate', adapt.bounceFrac <= chip.bounceFrac && adapt.bounceFrac >= grump.bounceFrac);
 ok('every pick still respects anti-repetition under weighting', (() => { for (const r of [chip, grump, adapt]) for (let i = 1; i < r.secs.length; i++) if (r.secs[i] === r.secs[i - 1]) return false; return true; })());
+
+// ───────────────────────────────────────────────────────────────────────────
+console.log('\nEngine — MOOD LAYER (C4, slow drift from recent events)');
+{
+  const m1 = createMoodMeter();
+  ok('starts neutral (level)', m1.level === 0 && m1.label === 'level');
+  for (let i = 0; i < 5; i++) m1.feel('sad');
+  ok('a run of errors → stressed', m1.label === 'stressed' && m1.level < 0);
+  const m2 = createMoodMeter();
+  for (let i = 0; i < 5; i++) m2.feel('excited');
+  ok('a streak of wins → up', m2.label === 'up' && m2.level > 0);
+  ok('mood is clamped to [-1, 1]', m2.level <= 1 && m1.level >= -1);
+  // decay pulls back toward neutral over quiet time
+  const m3 = createMoodMeter(); for (let i = 0; i < 5; i++) m3.feel('sad'); const lo = m3.level;
+  for (let i = 0; i < 30; i++) m3.decayStep();
+  ok('quiet time decays mood back toward neutral', m3.level > lo && m3.label === 'level');
+  // mixed: errors then a bigger streak of wins flips the drift
+  const m4 = createMoodMeter(); m4.feel('sad'); m4.feel('sad');
+  ok('errors first → stressed', m4.label === 'stressed');
+  for (let i = 0; i < 6; i++) m4.feel('excited');
+  ok('then wins flip it to up (mood is recency-weighted drift)', m4.label === 'up');
+  ok('neutral work (thinking) does not move the mood', (() => { const x = createMoodMeter(); for (let i = 0; i < 10; i++) x.feel('thinking'); return x.level === 0; })());
+}
 
 // ───────────────────────────────────────────────────────────────────────────
 const total = pass + fail;

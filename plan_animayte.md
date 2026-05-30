@@ -406,10 +406,10 @@ on his screen, sound cuteness, personality "vibes." Queue these in §11 "For Saa
 **Phase 0:** ☑ A1 ☑ A2 ☑ A6  ← Phase 0 COMPLETE
 **Phase 1:** ☑ A3 ☑ A4 ☑ B1 ☑ C1  ← Phase 1 COMPLETE
 **Phase 2:** ☑ A5 ☑ B2 ☑ B3 ☑ B4 ☑ B5  ← Phase 2 COMPLETE
-**Phase 3:** ☑ B6 ☑ C6 ☑ C3 ☐ C4 ☑ C2
+**Phase 3:** ☑ B6 ☑ C6 ☑ C3 ☑ C4 ☑ C2  ← Phase 3 COMPLETE
 **Phase 4:** ☐ C5 ☐ C7 ☐ C8
 
-`npm test` last status: **PASS — 592 checks** (253 engine + 112 conformance + 188 detection/consistency + 39 e2e) · Branch: `feat/anim-engine`
+`npm test` last status: **PASS — 604 checks** (261 engine + 112 conformance + 188 detection/consistency + 43 e2e) · Branch: `feat/anim-engine`
 Validated live via Preview MCP: thinking/excited/tired (indexed swap)/sleepy; tool gags reading(glasses)/asking(?+head-tilt)/running(dust) — all render correctly; SSE round-trip works; 0 console errors.
 
 ---
@@ -524,6 +524,13 @@ Validated live via Preview MCP: thinking/excited/tired (indexed swap)/sleepy; to
   threaded through `bin/animayte`); the page fetches the JSON. Tested: same idle stream under 3
   personalities → measurably different distributions (chipper bounces+fidgets more; grumpy leans+dozes
   sooner), anti-repetition preserved. Default = Adaptive. (C3)
+- **C4 mood layer** = `lib/anim/mood.mjs` (`createMoodMeter`, pure): a slow drift in [−1 stressed … +1
+  up] fed by emotional beats (sad/oops pull down, happy/excited push up; thinking/idle neutral),
+  decaying back toward neutral over quiet time. Daemon feeds it on every `setMood` + a 15s decay tick
+  (unref'd), exposes `state.moodLevel`/`moodLabel`, broadcasts `{cmd:'moodLevel'}` on label crossings;
+  `SessionStart` resets it. Runtime nudges reaction size (up=bigger) + adds a cool "stressed" palette
+  floor — coherence with NO new content. Tested pure (error-run→stressed, win-streak→up, decay,
+  recency flip) + e2e (real streaks drive the label). (C4)
 
 **For Saar to review / decide (non-blocking — I proceeded with a default):**
 - **Cursor-glance flair has NO real signal** (honest-mirror concern raised in `docs/animation-library.md`

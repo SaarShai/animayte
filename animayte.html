@@ -211,6 +211,7 @@
       case 'relief': if(ctrl.relief) ctrl.relief(); break;
       case 'react': if(ctrl.reactByName) ctrl.reactByName(m.name); break;
       case 'endReact': if(ctrl.toIdle) ctrl.toIdle(); break;
+      case 'moodLevel': if(ctrl.setMoodLevel) ctrl.setMoodLevel(m.value); break;
       case 'sleep': ctrl.sleep(); break;
       case 'say': say(m.text, m.ms||3500); break;
     }

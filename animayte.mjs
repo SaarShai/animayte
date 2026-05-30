@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, extname } from 'node:path';
 import { detectMood } from './lib/sentiment.mjs';
 import { classifyTool } from './lib/anim/events.mjs';
+import { createMoodMeter } from './lib/anim/mood.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.ANIMAYTE_PORT ? Number(process.env.ANIMAYTE_PORT) : 4321;
@@ -32,8 +33,10 @@ const state = {
   model: null, ctxPct: 0, ctxTokens: 0, ctxWindow: 0,
   costUsd: 0, linesAdded: 0, linesRemoved: 0,
   rateLimitPct: 0, effort: null, thinking: false,
+  moodLevel: 0, moodLabel: 'level',            // slow-moving mood drift (C4): up / level / stressed
   reliefSeq: 0, updated: Date.now(),
 };
+const moodMeter = createMoodMeter();
 let birdSeq = 1;
 const clients = new Set();
 
@@ -47,7 +50,15 @@ function snapshotTo(res) {
   res.write(`data: ${JSON.stringify({ cmd: 'mood', value: state.mood })}\n\n`);
 }
 
-const setMood     = (value, ms) => { state.mood = value; state.updated = Date.now(); broadcast({ cmd: 'mood', value, ms }); };
+const setMood     = (value, ms) => { state.mood = value; state.updated = Date.now(); broadcast({ cmd: 'mood', value, ms }); applyMoodDrift(value); };
+// C4 — feed the slow mood meter; broadcast only when the LABEL crosses (up/level/stressed)
+function applyMoodDrift(moodId) {
+  const before = state.moodLabel;
+  moodMeter.feel(moodId);
+  state.moodLevel = Math.round(moodMeter.level * 100) / 100;
+  state.moodLabel = moodMeter.label;
+  if (state.moodLabel !== before) broadcast({ cmd: 'moodLevel', value: state.moodLevel, label: state.moodLabel });
+}
 const setFullness = (v) => { state.fullness = Math.max(0, Math.min(1, v)); state.updated = Date.now(); broadcast({ cmd: 'fullness', value: state.fullness }); };
 
 // /compact relief: bump reliefSeq (pets play steam-from-ears), then deflate the head over ~1.8s.
@@ -72,7 +83,7 @@ const removeBird  = () => { const b = state.birds.shift(); if (b) broadcast({ cm
 const hatch       = () => { if (state.phase !== 'alive') { state.phase = 'alive'; broadcast({ cmd: 'wake' }); } };
 const say         = (text, ms) => broadcast({ cmd: 'say', text, ms });
 const sleepPet    = () => { state.phase = 'sleeping'; broadcast({ cmd: 'sleep' }); };
-const freshStart  = () => { state.phase = 'alive'; state.birds = []; state.fullness = 0; state.mood = 'idle'; broadcast({ cmd: 'reset' }); };
+const freshStart  = () => { state.phase = 'alive'; state.birds = []; state.fullness = 0; state.mood = 'idle'; moodMeter.reset(); state.moodLevel = 0; state.moodLabel = 'level'; broadcast({ cmd: 'reset' }); };
 
 // context window size by model (2026): haiku=200k, opus/sonnet 4.x = 1M. Statusline overrides this.
 function windowFor(model) {
@@ -317,6 +328,16 @@ const server = http.createServer(async (req, res) => {
     res.end(data);
   } catch { res.writeHead(404); res.end('not found'); }
 });
+
+// C4 — quiet time pulls the mood drift back toward neutral
+const moodDecay = setInterval(() => {
+  const before = state.moodLabel;
+  moodMeter.decayStep();
+  state.moodLevel = Math.round(moodMeter.level * 100) / 100;
+  state.moodLabel = moodMeter.label;
+  if (state.moodLabel !== before) broadcast({ cmd: 'moodLevel', value: state.moodLevel, label: state.moodLabel });
+}, 15000);
+if (moodDecay.unref) moodDecay.unref();   // don't keep the process alive just for decay
 
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`\n  🐣 animayte daemon →  http://127.0.0.1:${PORT}`);

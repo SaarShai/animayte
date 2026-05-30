@@ -162,6 +162,16 @@ try {
   check('Task → no tool gag (activeTool stays null)', s.activeTool, null);
   ok('Task spawned a bird', s.birds.length === 1, `(got ${s.birds.length})`);
 
+  // 11. C4 — slow mood drift from a run of events (unique texts dodge the sentiment de-dup)
+  await event({ hook_event_name: 'SessionStart' });          // resets the mood meter
+  for (let i = 0; i < 5; i++) { const tp = writeTranscript(`msad${i}.jsonl`, { tokens: 120_000, texts: [`build ${i} failed with an error`] }); s = await event({ hook_event_name: 'Stop', transcript_path: tp }); }
+  check('a run of errors → moodLabel "stressed"', s.moodLabel, 'stressed');
+  ok('moodLevel went negative', s.moodLevel < 0, `(got ${s.moodLevel})`);
+  await event({ hook_event_name: 'SessionStart' });          // reset again
+  for (let i = 0; i < 6; i++) { const tp = writeTranscript(`mwin${i}.jsonl`, { tokens: 120_000, texts: [`🎉 win ${i} — amazing breakthrough`] }); s = await event({ hook_event_name: 'Stop', transcript_path: tp }); }
+  check('a streak of wins → moodLabel "up"', s.moodLabel, 'up');
+  ok('moodLevel went positive', s.moodLevel > 0, `(got ${s.moodLevel})`);
+
 } catch (e) {
   fail++; fails.push('  ✗ threw: ' + e.message + '\n' + (e.stack || ''));
 } finally {

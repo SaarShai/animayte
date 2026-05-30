@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "animayte",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "ANIMAYTE_PORT=4366 node animayte.mjs"],
+      "port": 4366
+    }
+  ]
+}

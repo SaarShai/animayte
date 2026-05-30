@@ -405,11 +405,12 @@ on his screen, sound cuteness, personality "vibes." Queue these in §11 "For Saa
 
 **Phase 0:** ☑ A1 ☑ A2 ☑ A6  ← Phase 0 COMPLETE
 **Phase 1:** ☑ A3 ☑ A4 ☑ B1 ☑ C1  ← Phase 1 COMPLETE
-**Phase 2:** ☐ A5 ☐ B2 ☐ B3 ☐ B4 ☐ B5
+**Phase 2:** ☑ A5 ☐ B2 ☐ B3 ☐ B4 ☐ B5
 **Phase 3:** ☐ B6 ☐ C6 ☐ C3 ☐ C4 ☐ C2
 **Phase 4:** ☐ C5 ☐ C7 ☐ C8
 
 `npm test` last status: **PASS — 420 checks** (204 engine + 188 detection/consistency + 28 e2e) · Branch: `feat/anim-engine`
+A5 validated live via Preview MCP (thinking/excited/tired states, SSE round-trip, birds, swell, tint — screenshots clean, 0 console errors).
 
 ---
 
@@ -457,9 +458,19 @@ on his screen, sound cuteness, personality "vibes." Queue these in §11 "For Saa
   renderers). A hand-authored **`pets/bean/`** stub proves format reusability. `ANIMAYTE_PET` env
   selects the pack (daemon `state.pet`, threaded through `bin/animayte`). NOTE: I created `pets/` dirs
   by WRITING files into them (no `mv`), per Drive-safety. (C1)
-- **Browser-safety call for A5:** the web runtime will import only `easing/transform/state-machine`
+- **Browser-safety call for A5:** the web runtime imports only `easing/transform/state-machine`
   (pure, no `node:` imports) over http; it must NOT import `compositor`/`png` (they pull `node:zlib`).
-  Palette swap in-browser uses Canvas2D, not the Node compositor. (planning A5)
+  Palette swap in-browser uses Canvas2D, not the Node compositor. (A5 — confirmed: importing
+  `runtime.mjs` in Node works because `Image`/`fetch`/`rAF` are only touched inside `createRuntime`.)
+- **A5 web runtime ships as `lib/anim/runtime.mjs`** (ES module, served over http) consumed by
+  `animayte.html` via a **conditional dynamic `import()`** — so the standalone **file:// demo keeps
+  working** via the preserved inline legacy renderer (which also holds the `STATES`/`moodState`
+  consistency-test anchors). The runtime PLAYS the baked sheet (row=expression, col=clip frame) and
+  layers procedural transform tracks + fullness swell + mood tint + birds + particles on top — it
+  never redraws the body, so no drift. Mood tint is a stand-in until B2 re-palettizes the art to the
+  §4.2 role colors, after which the indexed `swapPalette` replaces the tint. (A5)
+- **Validation tooling:** added `.claude/launch.json` (daemon on :4366) so the Preview MCP can drive
+  the live page for screenshots. This is how I autonomously QA the browser renderer (G4). (A5)
 
 **For Saar to review / decide (non-blocking — I proceeded with a default):**
 - **Cursor-glance flair has NO real signal** (honest-mirror concern raised in `docs/animation-library.md`

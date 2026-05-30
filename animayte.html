@@ -309,11 +309,11 @@
     if(location.protocol!=='file:'){
       try{
         const mod=await import('/lib/anim/runtime.mjs');
-        let pet='slime', personaName='adaptive';
-        try{ const h=await fetch('/health').then(r=>r.json()); pet=(h&&h.state&&h.state.pet)||'slime'; personaName=(h&&h.state&&h.state.personality)||'adaptive'; }catch(_){}
+        let pet='slime', personaName='adaptive', sound=false, volume=0.6;
+        try{ const h=await fetch('/health').then(r=>r.json()); const st=(h&&h.state)||{}; pet=st.pet||'slime'; personaName=st.personality||'adaptive'; sound=st.sound===true; if(typeof st.volume==='number') volume=st.volume; }catch(_){}
         let personality=null;
         try{ personality=await fetch('/personalities/'+personaName+'.json').then(r=>r.ok?r.json():null); }catch(_){}
-        ctrl=await mod.createRuntime(cv,{ manifestUrl:'/pets/'+pet+'/pet.json', personality });
+        ctrl=await mod.createRuntime(cv,{ manifestUrl:'/pets/'+pet+'/pet.json', personality, sound, volume });
       }catch(e){ console.warn('animayte: rich runtime unavailable, using legacy renderer', e); ctrl=makeLegacy(); }
     } else {
       ctrl=makeLegacy();

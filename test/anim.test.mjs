@@ -23,6 +23,8 @@ import { classifyTool } from '../lib/anim/events.mjs';
 import { replaySession, SESSIONS, summarize } from '../tools/simulate.mjs';
 import { loadPersonality, resolvePersonality, weightFor, DEFAULT_PERSONALITY } from '../lib/anim/personality.mjs';
 import { createMoodMeter } from '../lib/anim/mood.mjs';
+import { SOUND_MAP, soundFor, renderTone, encodeWav, readWavHeader } from '../lib/anim/sound.mjs';
+import { DEFAULT_CONFIG, sanitize, loadConfig, saveConfig } from '../lib/anim/config.mjs';
 import { EXPRESSIONS } from '../lib/expressions.mjs';
 import { readFileSync, writeFileSync, mkdtempSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -529,6 +531,40 @@ console.log('\nEngine — MOOD LAYER (C4, slow drift from recent events)');
   for (let i = 0; i < 6; i++) m4.feel('excited');
   ok('then wins flip it to up (mood is recency-weighted drift)', m4.label === 'up');
   ok('neutral work (thinking) does not move the mood', (() => { const x = createMoodMeter(); for (let i = 0; i < 10; i++) x.feel('thinking'); return x.level === 0; })());
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+console.log('\nEngine — SOUND INFRA (C5, off by default)');
+ok('SOUND_MAP covers the key cues', ['greet', 'happy', 'excited', 'sad', 'relief', 'prop', 'bird'].every((k) => SOUND_MAP[k]));
+ok('soundFor unknown → null', soundFor('nope') === null);
+ok('renderTone length = floor(dur·sampleRate)', renderTone({ dur: 0.1, sampleRate: 22050 }).length === Math.floor(0.1 * 22050));
+ok('rendered samples stay within [-1,1]', (() => { const s = renderTone({ wave: 'square', freq: 660, dur: 0.05 }); for (const v of s) if (v < -1 || v > 1) return false; return true; })());
+{
+  const wav = encodeWav(renderTone({ dur: 0.05 }), 22050);
+  const h = readWavHeader(wav);
+  ok('encodeWav → valid RIFF/WAVE/fmt/data header', h.riff && h.wave && h.fmt && h.data);
+  ok('WAV is 16-bit mono at 22050Hz', h.channels === 1 && h.bitsPerSample === 16 && h.sampleRate === 22050);
+  ok('WAV data length matches sample count', h.dataBytes === renderTone({ dur: 0.05 }).length * 2);
+}
+ok('baked sfx on disk are valid WAVs', (() => { const w = readWavHeader(readFileSync(join(ROOT, 'assets/sfx/happy.wav'))); return w.riff && w.wave && w.bitsPerSample === 16; })());
+
+console.log('\nEngine — CONFIG & PERSISTENCE (C7)');
+ok('sound ships OFF by default', DEFAULT_CONFIG.sound === false);
+ok('sanitize: junk → safe defaults', (() => { const c = sanitize(null); return c.pet === 'slime' && c.personality === 'adaptive' && c.sound === false; })());
+ok('sanitize clamps volume to [0,1]', sanitize({ volume: 5 }).volume === 1 && sanitize({ volume: -1 }).volume === 0);
+ok('sanitize: bad position → null', sanitize({ position: { x: 'a' } }).position === null);
+ok('sanitize keeps a good position', (() => { const p = sanitize({ position: { x: 10, y: 20 } }).position; return p.x === 10 && p.y === 20; })());
+{
+  const dir = mkdtempSync(join(tmpdir(), 'animayte-cfg-'));
+  const p = join(dir, 'config.json');
+  ok('loadConfig(missing) → defaults', loadConfig(p).pet === 'slime');
+  const saved = saveConfig({ personality: 'grumpy', sound: true, volume: 0.3, position: { x: 5, y: 9 } }, p);
+  ok('saveConfig returns the merged config', saved.personality === 'grumpy' && saved.sound === true);
+  const loaded = loadConfig(p);
+  ok('round-trips through disk', loaded.personality === 'grumpy' && loaded.sound === true && loaded.volume === 0.3 && loaded.position.x === 5);
+  ok('partial patch merges over existing', saveConfig({ pet: 'bean' }, p).personality === 'grumpy');
+  writeFileSync(p, '{ this is not json');
+  ok('corrupt config file → safe defaults (never throws)', loadConfig(p).pet === 'slime');
 }
 
 // ───────────────────────────────────────────────────────────────────────────

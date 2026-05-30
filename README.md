@@ -103,12 +103,40 @@ Claude Code hooks ─curl POST─▶ animayte.mjs ─SSE / HTTP /health─▶ pe
 
 ```bash
 # edit lib/expressions.mjs (add emoji / keywords / a new face), then:
-npm run assets        # regenerate the spritesheet
-npm test              # 211 checks: detection, renderer-consistency, end-to-end
+npm run assets        # regenerate the spritesheet + manifest
+npm test              # 696 checks: engine, conformance golden, detection, doc-lint, end-to-end
 ```
 
 Try the interactive **expression tester** at `http://localhost:4321/tester.html` — type
 any agent phrasing and see exactly which face it triggers and why.
+
+## The animation engine (a living cartoon)
+
+Under the hood, animayte is a small **data-driven animation engine** (`lib/anim/`, zero
+runtime deps): a pet is **data** (`pets/<name>/pet.json`) describing layers, clips with
+procedural **squash/stretch transform tracks**, expressions, props, mood **palettes**, and
+event→reaction mappings. ~80% of the "aliveness" is procedural (easing + volume-conserving
+squash), not hand-drawn frames — so the library re-skins onto any pet design.
+
+- **Tool gags** — the daemon classifies tool calls (`lib/anim/events.mjs`) so the pet puts on
+  **👓 glasses to read**, peers with a **🔍 magnifier to search**, sprouts **legs + 💨 dust to
+  run a command**, **✏️ scribbles** to edit, and **stamps ✔ to commit**.
+- **Idle life** — breathing + randomized blink + a secondary-idle pool (sway / stretch / hop,
+  anti-repetition) + dozing when bored.
+- **Personalities** — `personalities/*.json` re-weight behavior (Adaptive / Chipper / Grumpy).
+- **Mood drift** — a run of errors reads as "stressed" (cooler), a streak of wins as "up".
+- **Sound** — optional chiptune SFX infra, **off by default** (`npm run sounds` bakes the blips).
+
+Build a pet of your own: **[docs/making-a-pet-pack.md](docs/making-a-pet-pack.md)**. The
+renderer-conformance contract that keeps the 3 renderers in sync:
+**[docs/renderer-runtime.md](docs/renderer-runtime.md)**. The full event→animation taxonomy:
+**[docs/animation-library.md](docs/animation-library.md)**.
+
+```bash
+npm run preview       # contact-sheets + clip filmstrips → tools/preview-out/ (QA the art)
+npm run simulate      # replay canned sessions → the pet's state timeline
+ANIMAYTE_PET=bean ANIMAYTE_PERSONALITY=chipper bin/animayte start
+```
 
 ## Design guardrails
 

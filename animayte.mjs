@@ -19,15 +19,20 @@ import { dirname, join, extname } from 'node:path';
 import { detectMood } from './lib/sentiment.mjs';
 import { classifyTool } from './lib/anim/events.mjs';
 import { createMoodMeter } from './lib/anim/mood.mjs';
+import { loadConfig } from './lib/anim/config.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.ANIMAYTE_PORT ? Number(process.env.ANIMAYTE_PORT) : 4321;
 
+// ---- persisted config (C7): env vars still win at runtime ----
+const cfg = loadConfig();
+
 // ---- live session state (everything the pet can reflect graphically) ----
 const state = {
   phase: 'alive', mood: 'idle', fullness: 0, birds: [] /* {id,label} */,
-  pet: process.env.ANIMAYTE_PET || 'slime',   // which pet pack the renderers should load (pets/<pet>/)
-  personality: process.env.ANIMAYTE_PERSONALITY || 'adaptive',  // re-weights idle/reaction selection (C3)
+  pet: process.env.ANIMAYTE_PET || cfg.pet,             // which pet pack to load (pets/<pet>/)
+  personality: process.env.ANIMAYTE_PERSONALITY || cfg.personality,  // re-weights idle/reaction (C3)
+  sound: cfg.sound, volume: cfg.volume,                 // SFX infra (C5) — OFF unless config enables it
   activeTool: null,                            // current tool category (read/search/edit/run/test/install/git) — C6
   // rich signals (see docs/session-signals.md):
   model: null, ctxPct: 0, ctxTokens: 0, ctxWindow: 0,

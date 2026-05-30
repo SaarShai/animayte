@@ -407,9 +407,9 @@ on his screen, sound cuteness, personality "vibes." Queue these in §11 "For Saa
 **Phase 1:** ☑ A3 ☑ A4 ☑ B1 ☑ C1  ← Phase 1 COMPLETE
 **Phase 2:** ☑ A5 ☑ B2 ☑ B3 ☑ B4 ☑ B5  ← Phase 2 COMPLETE
 **Phase 3:** ☑ B6 ☑ C6 ☑ C3 ☑ C4 ☑ C2  ← Phase 3 COMPLETE
-**Phase 4:** ☐ C5 ☐ C7 ☐ C8
+**Phase 4:** ☑ C5 ☑ C7 ☑ C8  ← Phase 4 COMPLETE · **ALL 21 MILESTONES DONE**
 
-`npm test` last status: **PASS — 604 checks** (261 engine + 112 conformance + 188 detection/consistency + 43 e2e) · Branch: `feat/anim-engine`
+`npm test` last status: **PASS — 715 checks** (279 engine + 112 conformance + 93 doc-lint + 188 detection/consistency + 43 e2e) · Branch: `feat/anim-engine`
 Validated live via Preview MCP: thinking/excited/tired (indexed swap)/sleepy; tool gags reading(glasses)/asking(?+head-tilt)/running(dust) — all render correctly; SSE round-trip works; 0 console errors.
 
 ---
@@ -531,6 +531,27 @@ Validated live via Preview MCP: thinking/excited/tired (indexed swap)/sleepy; to
   `SessionStart` resets it. Runtime nudges reaction size (up=bigger) + adds a cool "stressed" palette
   floor — coherence with NO new content. Tested pure (error-run→stressed, win-streak→up, decay,
   recency flip) + e2e (real streaks drive the label). (C4)
+- **C5 sound infra (OFF by default)** = `lib/anim/sound.mjs` (pure synth `renderTone` + `encodeWav`
+  + `SOUND_MAP`), `tools/make-sounds.mjs` → `assets/sfx/*.wav` (9 chiptune blips, `npm run sounds`).
+  Runtime has a gated `createSound` that never touches AudioContext while disabled — zero autoplay
+  surprises. Tested: WAV header valid, map coverage, samples in range, on-disk blips valid. Actual
+  blip cuteness is a Saar taste call (§11). (C5)
+- **C7 config** = `lib/anim/config.mjs` (load/save/sanitize) at `~/.config/animayte/config.json`
+  (OUTSIDE Drive-synced ~/Documents; `$ANIMAYTE_CONFIG` override). Pet/personality/sound/volume/
+  position; env still wins at runtime; corrupt/missing → safe defaults (never throws). Daemon loads
+  it (env > config > default). Tested: round-trip, clamp, bad-position→null, corrupt→defaults. (C7)
+- **C8 docs & packaging** = `docs/making-a-pet-pack.md` (authoring guide), README "animation engine"
+  section + pet-pack/personality/sound story, CONTRIBUTING project-shape refresh, 4 new npm scripts
+  (sounds/preview/simulate/conformance:update). NEW guard: `test/docs.test.mjs` doc-lint asserts every
+  repo path + `npm run` command referenced in the docs actually exists (93 checks). Stale "211 checks"
+  claims updated to the real total. (C8)
+
+---
+**🏁 ALL MILESTONES COMPLETE (2026-05-30).** G1 dynamic framework · G2 living-cartoon library · G3
+future-ready infra (pet packs, conformance contract, personality, mood, sound, config, event vocab) ·
+G4 autonomously validated (715 checks + readable contact-sheets/filmstrips + live Preview-MCP
+screenshots + session sims). Per the PRIME DIRECTIVE the run does NOT stop here — rolling into the §12
+backlog (next: a 2nd full pet pack to exercise the format; perf/stress hardening; reduced-motion).
 
 **For Saar to review / decide (non-blocking — I proceeded with a default):**
 - **Cursor-glance flair has NO real signal** (honest-mirror concern raised in `docs/animation-library.md`

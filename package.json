@@ -9,7 +9,11 @@
     "start": "node animayte.mjs",
     "open": "open http://127.0.0.1:4321",
     "test": "node test/run.mjs",
-    "assets": "node tools/make-assets.mjs"
+    "assets": "node tools/make-assets.mjs",
+    "sounds": "node tools/make-sounds.mjs",
+    "preview": "node tools/preview.mjs",
+    "simulate": "node tools/simulate.mjs",
+    "conformance:update": "node test/conformance.mjs --update"
   },
   "engines": { "node": ">=18" }
 }

@@ -405,7 +405,7 @@ on his screen, sound cuteness, personality "vibes." Queue these in §11 "For Saa
 
 **Phase 0:** ☑ A1 ☑ A2 ☑ A6  ← Phase 0 COMPLETE
 **Phase 1:** ☑ A3 ☑ A4 ☑ B1 ☑ C1  ← Phase 1 COMPLETE
-**Phase 2:** ☑ A5 ☑ B2 ☐ B3 ☐ B4 ☐ B5
+**Phase 2:** ☑ A5 ☑ B2 ☑ B3 ☐ B4 ☐ B5
 **Phase 3:** ☐ B6 ☐ C6 ☐ C3 ☐ C4 ☐ C2
 **Phase 4:** ☐ C5 ☐ C7 ☐ C8
 
@@ -481,6 +481,15 @@ A5 validated live via Preview MCP (thinking/excited/tired states, SSE round-trip
 - **Blink "split":** in the baked-sheet model, blink is column 3. True layer separation isn't in this
   model (deliberate — baked frames keep the 3 thin renderers drift-free per §3.4); B3 adds randomized
   blink via a runtime timer + per-frame `cell` column indices so breathing doesn't force a blink. (B2→B3)
+- **B3 idle system** = state-machine logic (A4) + DATA: added secondary-idle clips `sway` (lean+rot),
+  `stretch` (yawn-reach), `bounce` (hop) and a bored `doze` clip to the manifest; `idle.secondary`
+  picks among them with anti-repetition; breathing uses `cell` cols [0,1,2,1] (never the blink col 3)
+  so the runtime fires randomized blinks (3–6s) on its own timer. Added `rot` rendering to the runtime
+  for sway. Validated: bounce filmstrip (anticipation→hop→settle), real-manifest sim (secondary variety
+  + no back-to-back repeat + bored→doze). (B3)
+- **Headless-preview gotcha (validation):** the Preview MCP tab throttles `requestAnimationFrame` to ~0
+  when not painting, so eval+sleep "is it animating?" probes see a STALE canvas (rafFired:0). Use
+  **screenshots** (they force a paint) for visual checks; use the sim tests + filmstrips for motion. (B3)
 
 **For Saar to review / decide (non-blocking — I proceeded with a default):**
 - **Cursor-glance flair has NO real signal** (honest-mirror concern raised in `docs/animation-library.md`

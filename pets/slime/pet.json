@@ -122,16 +122,20 @@
       "loop": true,
       "frames": [
         {
-          "dur": 460
+          "dur": 460,
+          "cell": 0
         },
         {
-          "dur": 460
+          "dur": 460,
+          "cell": 1
         },
         {
-          "dur": 460
+          "dur": 460,
+          "cell": 2
         },
         {
-          "dur": 460
+          "dur": 460,
+          "cell": 1
         }
       ],
       "tracks": {
@@ -160,7 +164,8 @@
       "loop": false,
       "frames": [
         {
-          "dur": 90
+          "dur": 110,
+          "cell": 3
         }
       ]
     },
@@ -168,16 +173,20 @@
       "loop": false,
       "frames": [
         {
-          "dur": 80
+          "dur": 80,
+          "cell": 0
         },
         {
-          "dur": 110
+          "dur": 110,
+          "cell": 1
         },
         {
-          "dur": 140
+          "dur": 140,
+          "cell": 2
         },
         {
-          "dur": 160
+          "dur": 160,
+          "cell": 1
         }
       ],
       "tracks": {
@@ -203,6 +212,176 @@
           }
         ]
       }
+    },
+    "sway": {
+      "loop": false,
+      "frames": [
+        {
+          "dur": 230,
+          "cell": 0
+        },
+        {
+          "dur": 230,
+          "cell": 1
+        },
+        {
+          "dur": 230,
+          "cell": 2
+        },
+        {
+          "dur": 230,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "tx": 0,
+            "rot": 0
+          },
+          {
+            "t": 0.3,
+            "tx": -3,
+            "rot": -0.05,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 0.7,
+            "tx": 3,
+            "rot": 0.05,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 1,
+            "tx": 0,
+            "rot": 0,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "stretch": {
+      "loop": false,
+      "frames": [
+        {
+          "dur": 260,
+          "cell": 1
+        },
+        {
+          "dur": 300,
+          "cell": 2
+        },
+        {
+          "dur": 300,
+          "cell": 2
+        },
+        {
+          "dur": 240,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "sy": 1
+          },
+          {
+            "t": 0.45,
+            "sy": 1.12,
+            "ty": -2,
+            "ease": "easeOutQuad"
+          },
+          {
+            "t": 1,
+            "sy": 1,
+            "ty": 0,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "bounce": {
+      "loop": false,
+      "frames": [
+        {
+          "dur": 120,
+          "cell": 0
+        },
+        {
+          "dur": 150,
+          "cell": 2
+        },
+        {
+          "dur": 150,
+          "cell": 1
+        },
+        {
+          "dur": 140,
+          "cell": 0
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "sy": 1,
+            "ty": 0
+          },
+          {
+            "t": 0.2,
+            "sy": 0.9,
+            "ease": "easeOutQuad"
+          },
+          {
+            "t": 0.5,
+            "sy": 1.08,
+            "ty": -7,
+            "ease": "easeOutQuad"
+          },
+          {
+            "t": 1,
+            "sy": 1,
+            "ty": 0,
+            "ease": "easeOutBounce"
+          }
+        ]
+      }
+    },
+    "doze": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 900,
+          "cell": 3
+        },
+        {
+          "dur": 900,
+          "cell": 3
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "sy": 1,
+            "ty": 0
+          },
+          {
+            "t": 0.5,
+            "sy": 0.97,
+            "ty": 1,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 1,
+            "sy": 1,
+            "ty": 0,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
     }
   },
   "props": {},
@@ -213,7 +392,12 @@
       "minMs": 3000,
       "maxMs": 6000
     },
-    "secondary": [],
+    "secondary": [
+      "sway",
+      "stretch",
+      "bounce"
+    ],
+    "boredClip": "doze",
     "boredAfterMs": 30000
   },
   "source": {

@@ -362,6 +362,32 @@ console.log('  · unknown reaction is ignored, never throws');
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+console.log('\nEngine — IDLE SYSTEM (B3, against the real slime manifest)');
+{
+  const m = buildSlimeManifest();
+  ok('manifest defines the secondary-idle clips', ['sway', 'stretch', 'bounce'].every((c) => m.clips[c]));
+  ok('idle.secondary references real clips', m.idle.secondary.length > 0 && m.idle.secondary.every((c) => m.clips[c]));
+  ok('idle.boredClip (doze) is a real clip', !!m.clips[m.idle.boredClip]);
+  ok('breathing idle avoids the blink column (no cell===3)', m.clips.idle.frames.every((f) => f.cell !== 3));
+  ok('doze uses the eyes-closed column (cell===3)', m.clips.doze.frames.every((f) => f.cell === 3));
+
+  // simulate idle life on the REAL manifest data (timers sped up via a clone)
+  const fast = JSON.parse(JSON.stringify(m)); fast.idle.boredAfterMs = 9999999;
+  const sm = createStateMachine(fast, { rng: mulberry32(11), secondaryEveryMs: 800 });
+  for (let i = 0; i < 240; i++) sm.tick(50); // 12s of idle
+  const secs = sm.log.filter((e) => e.kind === 'secondary').map((e) => e.clip);
+  ok('real-manifest secondaries fire from the pool', secs.length >= 2 && secs.every((c) => m.idle.secondary.includes(c)));
+  let nr = true; for (let i = 1; i < secs.length; i++) if (secs[i] === secs[i - 1]) nr = false;
+  ok('real-manifest secondaries never repeat back-to-back', nr);
+}
+{
+  const fast = JSON.parse(JSON.stringify(buildSlimeManifest())); fast.idle.boredAfterMs = 3000;
+  const sm = createStateMachine(fast, { rng: mulberry32(5), secondaryEveryMs: 100000 }); // no secondary noise
+  let dozed = false; for (let i = 0; i < 90; i++) { sm.tick(50); if (sm.current().clip === 'doze') dozed = true; }
+  ok('after inactivity the pet dozes off (bored → doze clip)', dozed);
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 console.log('\nEngine — PET-PACK LOADER (C1)');
 
 console.log('  · lists and loads real packs');

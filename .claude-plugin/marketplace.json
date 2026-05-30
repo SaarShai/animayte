@@ -1,0 +1,15 @@
+{
+  "name": "animayte",
+  "owner": { "name": "Saar Shai" },
+  "metadata": {
+    "description": "animayte — the pet that visualizes your AI session",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "animayte",
+      "source": "./",
+      "description": "A virtual pet whose body, orbiting birds, and face reflect your live Claude Code session."
+    }
+  ]
+}

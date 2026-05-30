@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>animayte — expression review</title>
+<style>
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:radial-gradient(120% 90% at 50% 0%,#eaf4ff,#f6fbff 55%,#eef7f1);color:#33424f;padding:24px}
+  h1{font-size:20px;margin:0 0 2px;text-align:center}
+  p.sub{margin:0 0 20px;text-align:center;color:#7d8a98;font-size:13px}
+  table{border-collapse:collapse;margin:0 auto;background:rgba(255,255,255,.6);border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(70,110,150,.12)}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#7d8a98;padding:10px 14px;border-bottom:1px solid #e3edf5}
+  td{padding:10px 14px;border-bottom:1px solid #eef4f9;vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  .ours{width:96px;height:96px;image-rendering:pixelated;
+    background-image:url('assets/slime.png?v=4');background-repeat:no-repeat;background-size:384px 768px} /* 256x512 *1.5 */
+  .apple{font-size:46px;line-height:1}
+  .id{font-weight:700;font-size:15px}
+  .mean{font-size:12px;color:#5b6b7a;max-width:230px;line-height:1.4}
+  .emos{font-size:18px;letter-spacing:2px}
+  .arrow{color:#b9c6d2;font-size:20px;text-align:center}
+</style>
+</head>
+<body>
+  <h1>animayte — expression review</h1>
+  <p class="sub">our pixel face (frame 0) &nbsp;vs&nbsp; the Apple emoji it's modeled on &nbsp;·&nbsp; edit <code>lib/expressions.mjs</code> to change any of this</p>
+  <table id="t">
+    <thead><tr><th>our face</th><th></th><th>apple</th><th>expression</th><th>maps from these emoji</th></tr></thead>
+    <tbody></tbody>
+  </table>
+<script>
+  const CELL=96; // 64*1.5
+  const ROWS=[
+    ['neutral','🙂','idle / waiting','🙂 😐 😶'],
+    ['thinking','🤔','working · investigating · reading','🤔 🧐 💭 🔍 👀'],
+    ['happy','😄','success — it works, tests pass','😄 😊 ✅ 👍 👏'],
+    ['excited','🤩','big win · breakthrough','🤩 🥳 🎉 🚀 🔥 🙌'],
+    ['oops','😅','a small slip (sheepish, recoverable)','😅 😬 🤭'],
+    ['embarrassed','😳','shame · embarrassment (flushed)','😳 🫣 🙈 😖'],
+    ['sad','😟','bad news · error · negative finding','😟 🙁 😞 😢 ❌ 🐛'],
+    ['sleepy','😴','context full · long session','😴 😪 💤 🥱'],
+  ];
+  const tb=document.querySelector('#t tbody');
+  ROWS.forEach(([id,apple,mean,emos],row)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><div class="ours" style="background-position:0px -${row*CELL}px"></div></td>
+      <td class="arrow">→</td>
+      <td class="apple">${apple}</td>
+      <td><div class="id">${id}</div><div class="mean">${mean}</div></td>
+      <td class="emos">${emos}</td>`;
+    tb.appendChild(tr);
+  });
+</script>
+</body>
+</html>

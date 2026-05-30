@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# animayte launcher — universal entrypoint for Claude Code / Codex / Antigravity / terminal.
+#   start (default): bring the floating pet to life (+ event daemon for live reactions)
+#   stop / restart / status
+#
+# Pet renderer preference: native Swift (macOS, best) → Python/Tk (cross-platform) → browser note.
+# The plugin's /animayte command just calls this; the floating window is a separate process
+# (as it must be — no agent lets a plugin draw a free window from inside it).
+
+set -u
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PORT="${ANIMAYTE_PORT:-4321}"
+DAEMON="$ROOT/animayte.mjs"
+PET_SWIFT="$ROOT/desktop/AnimaytePet.swift"
+PET_BIN="$ROOT/desktop/.build/AnimaytePet"
+PET_PY="$ROOT/desktop/animayte_pet.py"
+LOGDIR="${TMPDIR:-/tmp}"
+
+NODE="$(command -v node || true)"
+PY="$(command -v python3 || true)"
+SWIFTC="$(command -v swiftc || true)"
+
+daemon_up() { curl -s -m 1 "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; }
+pet_up() { pgrep -f "AnimaytePet" >/dev/null 2>&1 || pgrep -f "animayte_pet.py" >/dev/null 2>&1; }
+
+start_daemon() {
+  if [ -n "$NODE" ] && ! daemon_up; then
+    ANIMAYTE_PORT="$PORT" nohup "$NODE" "$DAEMON" >"$LOGDIR/animayte_daemon.log" 2>&1 &
+    sleep 0.6
+  fi
+}
+
+build_swift() {                                   # returns 0 if a runnable native binary exists
+  [ "$(uname)" = "Darwin" ] || return 1
+  [ -n "$SWIFTC" ] || return 1
+  if [ ! -x "$PET_BIN" ] || [ "$PET_SWIFT" -nt "$PET_BIN" ]; then
+    mkdir -p "$ROOT/desktop/.build"
+    echo "   (preparing native pet — first run compiles once, ~a few seconds…)"
+    "$SWIFTC" -O "$PET_SWIFT" -o "$PET_BIN" 2>"$LOGDIR/animayte_build.log" || return 1
+  fi
+  [ -x "$PET_BIN" ]
+}
+
+launch_pet() {
+  if pet_up; then echo "🐣 animayte is already floating on your screen."; return 0; fi
+  if build_swift; then
+    ANIMAYTE_ASSETS="$ROOT/assets" ANIMAYTE_PORT="$PORT" nohup "$PET_BIN" >"$LOGDIR/animayte_pet.log" 2>&1 &
+    sleep 0.5
+    pet_up && { echo "🐣 animayte is floating on your screen (native) — drag it anywhere · right-click to dismiss."; return 0; }
+  fi
+  if [ -n "$PY" ]; then
+    ANIMAYTE_PORT="$PORT" nohup "$PY" "$PET_PY" >"$LOGDIR/animayte_pet.log" 2>&1 &
+    sleep 0.4
+    pet_up && { echo "🐣 animayte is floating on your screen — drag it · Esc or right-click to dismiss."; return 0; }
+  fi
+  echo "animayte: couldn't open a native window (need swiftc on macOS, or python3)." >&2
+  echo "          Browser fallback: run 'node \"$DAEMON\"' then open http://127.0.0.1:$PORT" >&2
+  return 1
+}
+
+start() {
+  start_daemon
+  launch_pet || return 1
+  daemon_up && echo "   live: reacting to this session ●" || echo "   (idle mode — start a session to see it react)"
+}
+
+stop() {
+  local k=0
+  pkill -f "AnimaytePet" 2>/dev/null && k=1
+  pkill -f "animayte_pet.py" 2>/dev/null && k=1
+  [ -n "$NODE" ] && pkill -f "animayte.mjs" 2>/dev/null || true
+  [ "$k" = 1 ] && echo "pet dismissed." || echo "pet was not running."
+}
+
+status() {
+  pet_up    && echo "pet:    running ●" || echo "pet:    stopped ○"
+  daemon_up && echo "daemon: running ● (http://127.0.0.1:$PORT)" || echo "daemon: stopped ○"
+}
+
+case "${1:-start}" in
+  start|"") start ;;
+  stop)     stop ;;
+  restart)  stop; sleep 0.5; start ;;
+  status)   status ;;
+  *) echo "usage: animayte [start|stop|restart|status]" >&2; exit 2 ;;
+esac

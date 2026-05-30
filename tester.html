@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>animayte — expression tester</title>
+<style>
+  :root{--ink:#33424f;--muted:#7d8a98;--card:rgba(255,255,255,.8);--accent:#5b8cff}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);
+    background:radial-gradient(120% 90% at 50% 0%,#eaf4ff,#f6fbff 55%,#eef7f1);min-height:100vh;padding:24px}
+  .wrap{max-width:640px;margin:0 auto}
+  h1{font-size:20px;margin:0 0 2px;text-align:center}
+  p.sub{margin:0 0 18px;text-align:center;color:var(--muted);font-size:13px}
+  .panel{background:var(--card);backdrop-filter:blur(8px);border-radius:18px;padding:18px;
+    box-shadow:0 10px 30px rgba(70,110,150,.12)}
+  textarea{width:100%;border:1px solid #dce6f0;border-radius:12px;padding:12px;font-size:15px;
+    font-family:inherit;resize:vertical;min-height:64px;color:var(--ink)}
+  textarea:focus{outline:none;border-color:var(--accent)}
+  .row{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  label.tog{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px;cursor:pointer}
+  .result{display:flex;align-items:center;gap:18px;margin-top:18px;padding:16px;border-radius:14px;
+    background:#fff;box-shadow:inset 0 0 0 1px #eef3f8;min-height:120px}
+  .face{width:110px;height:110px;flex:none;image-rendering:pixelated;
+    background-image:url('assets/slime.png');background-repeat:no-repeat;
+    background-size:440px 880px;background-position:0 0;border-radius:12px;
+    background-color:#eef7f3}
+  .rmeta{flex:1}
+  .rid{font-size:22px;font-weight:800;letter-spacing:.3px}
+  .rid .apple{font-size:26px;margin-right:8px}
+  .rmean{color:#5b6b7a;font-size:13px;margin-top:2px}
+  .rwhy{font-size:12px;color:var(--muted);margin-top:8px;font-family:ui-monospace,monospace}
+  .none{color:var(--muted);font-style:italic}
+  .ex{margin-top:16px}
+  .ex h3{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:0 0 8px}
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .chip{border:0;background:#eef4fb;color:var(--ink);font-size:12.5px;padding:7px 11px;border-radius:9px;
+    cursor:pointer;font-family:inherit}
+  .chip:hover{background:#e2ecf7}
+  .pill{font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px}
+  .pill.on{background:#d8f7e6;color:#13895a}.pill.off{background:#eef0f3;color:#9aa7b4}
+  .legend{margin-top:18px;font-size:12px;color:var(--muted);line-height:1.7}
+  .legend b{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>animayte — expression tester</h1>
+  <p class="sub">type or paste what the agent might write · see exactly which face it triggers and why<br/>
+    <span id="conn" class="pill off">checking daemon…</span></p>
+
+  <div class="panel">
+    <textarea id="inp" placeholder="e.g.  🎉 found a great solution!   …or…   sorry, my mistake — let me fix that" autofocus></textarea>
+    <div class="row">
+      <label class="tog"><input type="checkbox" id="push" checked/> drive my floating pet too</label>
+      <span style="flex:1"></span>
+      <span class="muted" style="font-size:12px;color:var(--muted)">updates live as you type</span>
+    </div>
+
+    <div class="result" id="result">
+      <div class="face" id="face" style="opacity:.25"></div>
+      <div class="rmeta"><div class="none">…waiting for input</div></div>
+    </div>
+
+    <div class="ex">
+      <h3>try these</h3>
+      <div class="chips" id="chips"></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <b>How it works:</b> this calls the daemon's real <code>/detect</code> — the same code the pet uses.
+    Emoji win first (the agent's own feeling), then keywords. Principles:
+    <b>a face never hides an error</b> (success + error → 😟), <b>negation-aware</b> (“zero errors” → 😄),
+    neutral narration → no change.
+  </div>
+</div>
+
+<script>
+  const ROWS = ['neutral','thinking','happy','excited','oops','embarrassed','sad','sleepy'];
+  const CELL = 110;
+  const EXAMPLES = [
+    '🎉 found a great solution!',
+    '✅ all tests pass now',
+    'sorry, my mistake — let me fix that',
+    'the build failed with an exception',
+    'let me investigate the root cause',
+    'runs clean, zero errors',
+    'mostly works but threw an error',
+    'how embarrassing, a rookie mistake',
+    'compacting the context now',
+    'just writing the value to the buffer',
+  ];
+
+  const $ = id => document.getElementById(id);
+  const face = $('face'), result = $('result'), inp = $('inp');
+
+  // connection indicator
+  fetch('/health').then(r=>r.json()).then(()=>{ $('conn').className='pill on'; $('conn').textContent='● daemon live'; })
+    .catch(()=>{ $('conn').className='pill off'; $('conn').textContent='○ daemon not running (start: node animayte.mjs)'; });
+
+  // example chips
+  const chips = $('chips');
+  EXAMPLES.forEach(t=>{ const b=document.createElement('button'); b.className='chip'; b.textContent=t;
+    b.onclick=()=>{ inp.value=t; run(); inp.focus(); }; chips.appendChild(b); });
+
+  function render(r){
+    if(!r){
+      face.style.opacity=.2; face.style.backgroundPosition='0 0';
+      result.querySelector('.rmeta').innerHTML='<div class="none">no expression — neutral / nothing to react to</div>';
+      return;
+    }
+    const row = Math.max(0, ROWS.indexOf(r.mood));
+    face.style.opacity=1;
+    face.style.backgroundPosition=`0 -${row*CELL}px`;
+    result.querySelector('.rmeta').innerHTML =
+      `<div class="rid"><span class="apple">${r.emoji||''}</span>${r.mood.toUpperCase()}</div>
+       <div class="rmean">priority ${r.priority ?? '—'}</div>
+       <div class="rwhy">trigger: ${r.reason||'—'}</div>`;
+  }
+
+  let timer=null;
+  function run(){
+    const text = inp.value;
+    const push = $('push').checked ? '1' : '0';
+    fetch('/detect?push='+push+'&text='+encodeURIComponent(text))
+      .then(r=>r.json()).then(j=>render(j.result)).catch(()=>{});
+  }
+  inp.addEventListener('input', ()=>{ clearTimeout(timer); timer=setTimeout(run, 180); });
+  run();
+</script>
+</body>
+</html>

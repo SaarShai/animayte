@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>animayte — your session, alive 🐣</title>
+<style>
+  :root{ --ink:#33424f; --muted:#7d8a98; --card:rgba(255,255,255,.72); --chip:#eef4fb; --accent:#5b8cff; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+    color:var(--ink);
+    background:radial-gradient(120% 90% at 50% 0%, #eaf4ff 0%, #f6fbff 55%, #eef7f1 100%);
+    display:flex;flex-direction:column;align-items:center;min-height:100%;
+  }
+  header{text-align:center;margin:18px 0 2px}
+  header h1{font-size:20px;margin:0;letter-spacing:.2px}
+  header p{margin:4px 0 0;color:var(--muted);font-size:13px}
+
+  .stage{
+    position:relative;width:min(92vw,460px);aspect-ratio:160/173;margin-top:2px;
+    background:linear-gradient(180deg,#dcefff 0%,#eaf7ff 58%,#dff3e6 100%);
+    border-radius:22px;overflow:hidden;
+    box-shadow:0 16px 30px rgba(70,110,150,.16), inset 0 0 0 1px rgba(255,255,255,.5);
+  }
+  .stage:before{content:"";position:absolute;left:50%;top:-30%;width:70%;height:70%;
+    transform:translateX(-50%);background:radial-gradient(circle,rgba(255,247,214,.7),transparent 60%)}
+  .stage:after{content:"";position:absolute;left:0;right:0;bottom:0;height:26%;
+    background:linear-gradient(180deg,transparent,#cdeedd)}
+
+  /* bare mode: pet-only, transparent — for the floating window / overlay */
+  body.bare{background:transparent;display:block}
+  body.bare header,body.bare .hud,body.bare .panel,body.bare footer{display:none}
+  body.bare .stage{width:100vw;height:100vh;margin:0;border-radius:0;background:transparent;box-shadow:none}
+  body.bare .stage:before,body.bare .stage:after{display:none}
+  body.bare .livePill{right:6px;top:6px}
+  canvas#screen{
+    position:absolute;inset:0;width:100%;height:100%;display:block;
+    image-rendering:pixelated;image-rendering:crisp-edges;
+  }
+
+  .caption{
+    position:absolute;left:50%;top:10px;transform:translateX(-50%);
+    background:#fff;border-radius:14px;padding:7px 13px;font-size:13px;font-weight:600;
+    color:var(--ink);box-shadow:0 6px 18px rgba(70,110,150,.18);
+    white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis;
+    opacity:0;transition:opacity .35s;pointer-events:none;z-index:3;
+  }
+  .caption.show{opacity:1}
+  .caption:after{content:"";position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);
+    border:7px solid transparent;border-top-color:#fff;border-bottom:0}
+  .livePill{
+    position:absolute;right:10px;top:10px;font-size:11px;font-weight:700;letter-spacing:.4px;
+    background:rgba(255,255,255,.85);border-radius:999px;padding:4px 10px;color:#9aa7b4;z-index:2;
+    box-shadow:0 4px 12px rgba(70,110,150,.12);
+  }
+
+  .hud{display:flex;gap:10px;justify-content:center;margin-top:12px;flex-wrap:wrap}
+  .stat{background:var(--card);border-radius:12px;padding:6px 12px;font-size:12px;color:var(--muted);
+    backdrop-filter:blur(6px);min-width:96px;text-align:center}
+  .stat b{display:block;font-size:15px;color:var(--ink);margin-top:1px}
+
+  .panel{
+    width:min(92vw,560px);background:var(--card);backdrop-filter:blur(8px);
+    border:1px solid rgba(255,255,255,.6);border-radius:18px;padding:14px 16px;margin:14px 0 28px;
+    box-shadow:0 10px 30px rgba(70,110,150,.12);
+  }
+  .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0}
+  .row .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);width:74px;flex:none}
+  button.chip{border:0;background:var(--chip);color:var(--ink);font-weight:600;font-size:13px;
+    padding:8px 12px;border-radius:11px;cursor:pointer;transition:transform .08s, background .15s;font-family:inherit}
+  button.chip:hover{background:#e3edf8}
+  button.chip:active{transform:scale(.95)}
+  button.chip.primary{background:linear-gradient(180deg,#6f9bff,#5b8cff);color:#fff;box-shadow:0 6px 14px rgba(91,140,255,.35)}
+  button.chip.warn{background:#ffe1e6}
+  input[type=range]{flex:1;accent-color:var(--accent)}
+  .pct{width:42px;text-align:right;font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted)}
+  .hint{font-size:12px;color:var(--muted);text-align:center;margin-top:4px}
+  footer{color:var(--muted);font-size:11px;margin-bottom:24px;text-align:center;line-height:1.6}
+</style>
+</head>
+<body>
+  <header>
+    <h1>animayte</h1>
+    <p>a tiny creature that <i>is</i> your AI session — watch it think, tire, and call for help</p>
+  </header>
+
+  <div class="stage">
+    <div class="caption" id="caption"></div>
+    <div class="livePill" id="livePill">demo</div>
+    <canvas id="screen" width="160" height="173"></canvas>
+  </div>
+
+  <div class="hud">
+    <div class="stat">context window<b id="hudCtx">0%</b></div>
+    <div class="stat">sub-agents<b id="hudBirds">0</b></div>
+    <div class="stat">mood<b id="hudMood">—</b></div>
+  </div>
+
+  <div class="panel">
+    <div class="row">
+      <button class="chip primary" onclick="floatOnScreen()">🪟 Float on screen</button>
+      <button class="chip" onclick="playDemo()">▶ Play demo</button>
+      <button class="chip" onclick="goSleep()">💤 Sleep</button>
+    </div>
+    <div class="row">
+      <span class="lbl">Feelings</span>
+      <button class="chip" onclick="setMood('idle')">😌 idle</button>
+      <button class="chip" onclick="setMood('listening')">👂 listening</button>
+      <button class="chip" onclick="setMood('working')">⚙️ working</button>
+      <button class="chip" onclick="setMood('happy')">🙂 happy</button>
+      <button class="chip" onclick="setMood('excited')">🤩 excited</button>
+      <button class="chip" onclick="setMood('oops')">😬 oops</button>
+      <button class="chip" onclick="setMood('bashful')">☺️ bashful</button>
+    </div>
+    <div class="row">
+      <span class="lbl">Context</span>
+      <input type="range" id="ctx" min="0" max="100" value="0" oninput="setFullness(this.value/100)"/>
+      <span class="pct" id="ctxPct">0%</span>
+    </div>
+    <div class="row">
+      <span class="lbl">Sub-agents</span>
+      <button class="chip" onclick="addBird()">＋ spawn helper</button>
+      <button class="chip warn" onclick="removeBird()">－ finish one</button>
+      <span class="hint" id="birdHint">birds appear when Claude spawns sub-tasks (max 5)</span>
+    </div>
+  </div>
+
+  <footer>
+    animayte · MVP preview build (pixel) · the live version reacts to your real Claude Code session<br/>
+    drag the Context slider to watch it get sleepy · spawn helpers to summon birds
+  </footer>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('screen'), ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  const AW = 160, AH = 173;
+
+  // ---- assets (sprite sheets generated by tools/make-assets.mjs) ----
+  const slimeImg = new Image(), birdImg = new Image();
+  slimeImg.src = 'assets/slime.png'; birdImg.src = 'assets/bird.png';
+  const CELL = 64, FRAMES = 4;
+  const STATES = ['neutral', 'thinking', 'happy', 'excited', 'oops', 'embarrassed', 'sad', 'sleepy'];
+  const moodState = m => ({ neutral:'neutral', idle:'neutral', thinking:'thinking', working:'thinking', listening:'thinking', happy:'happy', excited:'excited', oops:'oops', bashful:'oops', embarrassed:'embarrassed', sad:'sad', sleepy:'sleepy', tired:'sleepy' }[m] || 'neutral');
+
+  const now = () => performance.now();
+  const clamp = (v,a,b) => v<a?a:v>b?b:v;
+
+  const S = { phase:'alive', mood:'idle', fullness:0, birds:[], fx:[], moodUntil:0, bounce:0, shake:0, lastZ:0, captionTimer:null, playing:false };
+  let nextBirdId = 1;
+  const BIRD_LABELS = ['search docs','write tests','refactor','read files','run build','fetch data'];
+
+  // ---- caption ----
+  function say(text, ms=3200){ const c=$('caption'); c.textContent=text; c.classList.add('show'); clearTimeout(S.captionTimer); if(ms) S.captionTimer=setTimeout(()=>c.classList.remove('show'),ms); }
+  function flash(msg){ const el=$('birdHint'); const o=el.textContent; el.textContent=msg; el.style.color='#d8607a'; setTimeout(()=>{el.textContent=o;el.style.color='';},1400); }
+
+  // ---- public API ----
+  function applyHud(){ $('hudMood').textContent=S.mood; $('hudBirds').textContent=S.birds.length; }
+  function setMood(mood, transientMs){
+    S.phase='alive';
+    S.mood=mood;
+    if(mood==='happy'||mood==='excited') S.bounce=1;
+    if(mood==='excited') burst(80,78);
+    if(mood==='oops') S.shake=1;
+    S.moodUntil = transientMs ? now()+transientMs : 0;
+    applyHud();
+  }
+  function setFullness(v){
+    S.fullness=clamp(v,0,1);
+    const pc=Math.round(S.fullness*100);
+    $('ctx').value=pc; $('ctxPct').textContent=pc+'%'; $('hudCtx').textContent=pc+'%';
+    if(S.fullness>0.82 && S.mood!=='tired') setMood('tired');
+  }
+  function addBird(label){
+    if(S.birds.length>=5){ flash('max 5 — it gets too crowded!'); return; }
+    S.birds.push({ id:nextBirdId++, label: label || BIRD_LABELS[(nextBirdId-1)%BIRD_LABELS.length], born:now() });
+    updateBirdHud();
+  }
+  function removeBird(){ const b=S.birds.shift(); if(b) poof(b._x||80,b._y||64); updateBirdHud(); if(S.birds.length===0 && S.mood==='working') setMood('happy',1500); }
+  function updateBirdHud(){ $('hudBirds').textContent=S.birds.length; $('birdHint').textContent = S.birds.length ? S.birds.map(b=>b.label).join(' · ') : 'birds appear when Claude spawns sub-tasks (max 5)'; }
+  function hatch(){ if(S.phase==='sleeping'){ S.phase='alive'; setMood('happy',1400); } }
+  function reset(){ S.phase='alive'; S.birds=[]; S.fx=[]; setFullness(0); setMood('idle'); updateBirdHud(); }
+  function goSleep(){ S.phase='sleeping'; S.mood='tired'; applyHud(); say('session resting 💤',2000); }
+
+  // ---- particles ----
+  function burst(x,y){ for(let i=0;i<12;i++){ const a=(i/12)*Math.PI*2; S.fx.push({x,y,vx:Math.cos(a)*1.5,vy:Math.sin(a)*1.5-0.4,life:26+Math.random()*10,kind:'dot',col:i%2?'#fff3a0':'#ffd6e6'}); } }
+  function poof(x,y){ for(let i=0;i<6;i++){ S.fx.push({x,y,vx:(Math.random()-.5)*1.7,vy:(Math.random()-.5)*1.7,life:16,kind:'dot',col:'#cfe0ff'}); } }
+  function drawFx(){
+    for(let i=S.fx.length-1;i>=0;i--){ const f=S.fx[i]; f.x+=f.vx; f.y+=f.vy; f.life--; if(f.life<=0){ S.fx.splice(i,1); continue; }
+      ctx.fillStyle=f.col;
+      if(f.kind==='z'){ ctx.fillRect(f.x,f.y,3,1); ctx.fillRect(f.x+2,f.y+1,1,1); ctx.fillRect(f.x+1,f.y+1,1,1); ctx.fillRect(f.x,f.y+2,3,1); }
+      else ctx.fillRect(f.x,f.y,2,2);
+    }
+  }
+
+  // ---- drawing ----
+  const GROUND = 122, CX = 80;
+  function drawSlime(t){
+    if(!slimeImg.complete || slimeImg.naturalWidth===0) return;
+    const state = (S.phase==='sleeping') ? 'sleepy' : moodState(S.mood);
+    const row = Math.max(0, STATES.indexOf(state));
+    const col = Math.floor(t*5) % FRAMES;
+    const full = 1 + S.fullness*0.22;
+    const squash = 1 + S.bounce*0.12;
+    const w = CELL * full * (1/Math.sqrt(squash));
+    const h = CELL * full * squash;
+    const hop = Math.abs(Math.sin(t*16)) * S.bounce * 8;
+    const dx = CX - w/2 + Math.sin(t*42)*S.shake*4;
+    const dy = GROUND - h + 8 - hop;   // +8: art has a little space under the baked shadow
+    ctx.drawImage(slimeImg, col*CELL, row*CELL, CELL, CELL, Math.round(dx), Math.round(dy), Math.round(w), Math.round(h));
+  }
+  function drawBirds(t){
+    if(!birdImg.complete || birdImg.naturalWidth===0) return;
+    const n=S.birds.length;
+    for(let i=0;i<n;i++){ const b=S.birds[i]; const ang=t*0.6+(i/n)*Math.PI*2;
+      const x=CX+Math.cos(ang)*46, y=58+Math.sin(ang)*22; b._x=x; b._y=y;
+      const age=clamp((now()-b.born)/350,0,1); if(age<0.15) continue;
+      const fr=Math.floor(t*9+i)%2, s=24*age;
+      ctx.drawImage(birdImg, fr*24,0,24,24, Math.round(x-s/2), Math.round(y-s/2), Math.round(s), Math.round(s));
+    }
+  }
+  function frame(){
+    const t=now()/1000;
+    if(S.moodUntil && now()>S.moodUntil){ S.moodUntil=0; setMood(S.fullness>0.8?'tired':'idle'); }
+    S.bounce*=0.9; if(S.bounce<0.002)S.bounce=0;
+    S.shake*=0.86; if(S.shake<0.002)S.shake=0;
+    if(S.phase==='sleeping' && now()-S.lastZ>900){ S.lastZ=now(); S.fx.push({x:CX+18,y:60,vx:0.25,vy:-0.5,life:54,kind:'z',col:'#9bb3c9'}); }
+
+    ctx.clearRect(0,0,AW,AH);
+    drawBirds(t);
+    drawSlime(t);
+    drawFx();
+    requestAnimationFrame(frame);
+  }
+
+  // ---- scripted demo ----
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  async function playDemo(){
+    if(S.playing) return; S.playing=true;
+    reset(); await sleep(700);
+    setMood('happy'); say('👋 hi! watch my face…'); await sleep(2400);
+    setMood('listening'); say('👂 reading your request…'); await sleep(2000);
+    setMood('working'); say('⚙️ on it — reading files…'); await sleep(1500);
+    for(let p=0;p<=42;p+=6){ setFullness(p/100); await sleep(170); }
+    say('🐦 this is big — calling in helpers');
+    addBird('search docs'); await sleep(650); addBird('write tests'); await sleep(650); addBird('refactor'); await sleep(1700);
+    say('✅ a helper finished!'); removeBird(); setMood('happy',1400); await sleep(1700);
+    setMood('working'); for(let p=42;p<=70;p+=4){ setFullness(p/100); await sleep(150); }
+    say('🎉 found a great solution!'); setMood('excited',2200); await sleep(2300);
+    say('😬 oops — small mistake, fixing it'); setMood('oops',2200); await sleep(2300);
+    setMood('bashful',1500); say('☺️ there — fixed.'); await sleep(1600);
+    removeBird(); removeBird(); setMood('working'); say('⚙️ wrapping up…');
+    for(let p=70;p<=94;p+=3){ setFullness(p/100); await sleep(150); }
+    setMood('tired'); say('😪 context almost full…'); await sleep(1900);
+    say('🗜️ compacting context…'); await sleep(1400);
+    for(let p=94;p>=28;p-=6){ setFullness(p/100); await sleep(95); }
+    setMood('excited',1600); say('😌 phew — so much lighter!'); await sleep(2300);
+    setMood('idle'); say('done! 🌿  (drag the slider or poke the buttons)',6000);
+    S.playing=false;
+  }
+
+  // ---- bare mode (pet-only, transparent): for the floating window / future overlay ----
+  const BARE = new URLSearchParams(location.search).has('bare');
+  if(BARE) document.body.classList.add('bare');
+
+  // ---- float on screen: a real always-on-top, draggable window via Document Picture-in-Picture ----
+  let pipReturn = null;
+  async function floatOnScreen(){
+    const stage = document.querySelector('.stage');
+    if('documentPictureInPicture' in window){
+      try{
+        if(window.documentPictureInPicture.window){ window.documentPictureInPicture.window.focus(); return; }
+        const pip = await window.documentPictureInPicture.requestWindow({ width: 220, height: 238 });
+        const st = pip.document.createElement('style');
+        st.textContent = 'html,body{margin:0;height:100%;overflow:hidden;background:transparent;-webkit-user-select:none;user-select:none;cursor:grab}'+
+          '.stage{width:100%!important;height:100%!important;border-radius:0!important;margin:0!important;background:transparent!important;box-shadow:none!important}'+
+          '.stage:before,.stage:after{display:none!important}.livePill{right:6px;top:6px}';
+        pip.document.head.appendChild(st);
+        const anchor = document.createComment('pet'); stage.replaceWith(anchor);
+        pip.document.body.appendChild(stage);                    // canvas keeps animating from this context
+        pipReturn = () => { try{ anchor.replaceWith(stage); }catch(_){} };
+        pip.addEventListener('pagehide', () => { if(pipReturn){ pipReturn(); pipReturn=null; } });
+        say('🪟 floating! drag it anywhere — it stays on top', 4000);
+      }catch(e){ window.open(location.origin+'/?bare=1','animayte_float','width=220,height=238'); say('opened a floating pet window', 4000); }
+    } else {
+      window.open((location.origin||'')+'/?bare=1', 'animayte_float', 'width=220,height=238');
+      say('opened a floating pet window — for always-on-top, use Chrome/Edge', 4500);
+    }
+  }
+
+  Object.assign(window,{setMood,setFullness,addBird,removeBird,hatch,reset,goSleep,playDemo,floatOnScreen});
+
+  // ---- live mode ----
+  function dispatch(m){
+    switch(m && m.cmd){
+      case 'hatch': case 'wake': hatch(); break;
+      case 'reset': case 'resetEgg': reset(); break;
+      case 'mood': setMood(m.value, m.ms); break;
+      case 'fullness': setFullness(m.value); break;
+      case 'addBird': addBird(m.label); break;
+      case 'removeBird': removeBird(); break;
+      case 'clearBirds': S.birds=[]; updateBirdHud(); break;
+      case 'sleep': goSleep(); break;
+      case 'say': say(m.text, m.ms||3500); break;
+    }
+  }
+  let live=false;
+  function connectLive(){
+    if(location.protocol==='file:') return;
+    try{
+      const es=new EventSource('/events'); const pill=$('livePill');
+      es.onopen=()=>{ live=true; if(pill){pill.textContent='● live';pill.style.color='#19b36b';} };
+      es.onerror=()=>{ if(pill && !live) pill.textContent='○ waiting…'; };
+      es.onmessage=(e)=>{ try{ dispatch(JSON.parse(e.data)); }catch(_){} };
+    }catch(_){}
+  }
+
+  // ---- boot ----
+  setFullness(0); updateBirdHud();
+  requestAnimationFrame(frame);
+  connectLive();
+  if(location.protocol==='file:') say('tap ▶ Play demo to see the moods',6000);
+})();
+</script>
+</body>
+</html>

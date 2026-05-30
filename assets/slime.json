@@ -1,0 +1,24 @@
+{
+  "cell": 64,
+  "frames": 4,
+  "states": [
+    "neutral",
+    "thinking",
+    "happy",
+    "excited",
+    "oops",
+    "embarrassed",
+    "sad",
+    "sleepy"
+  ],
+  "apple": {
+    "neutral": "🙂",
+    "thinking": "🤔",
+    "happy": "😄",
+    "excited": "🤩",
+    "oops": "😅",
+    "embarrassed": "😳",
+    "sad": "😟",
+    "sleepy": "😴"
+  }
+}

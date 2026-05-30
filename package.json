@@ -1,0 +1,15 @@
+{
+  "name": "animayte",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A virtual pet that visualizes your live AI coding session — context window becomes its body, sub-agents become orbiting thoughts, sentiment becomes its face.",
+  "bin": { "animayte": "animayte.mjs" },
+  "scripts": {
+    "start": "node animayte.mjs",
+    "open": "open http://127.0.0.1:4321",
+    "test": "node test/run.mjs",
+    "assets": "node tools/make-assets.mjs"
+  },
+  "engines": { "node": ">=18" }
+}

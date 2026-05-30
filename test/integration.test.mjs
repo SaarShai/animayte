@@ -172,6 +172,38 @@ try {
   check('a streak of wins → moodLabel "up"', s.moodLabel, 'up');
   ok('moodLevel went positive', s.moodLevel > 0, `(got ${s.moodLevel})`);
 
+  // 12. HARDENING (§9.6) — malformed input + floods must never crash or wedge the daemon
+  const postRaw = (path, body) => fetch(BASE + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body }).then((r) => r.text()).catch((e) => 'ERR:' + e.message);
+  await event({ hook_event_name: 'SessionStart' });
+  ok('malformed JSON body → 200 ok (caught, not crashed)', (await postRaw('/event', '{ not json')) === 'ok');
+  ok('empty body → ok', (await postRaw('/event', '')) === 'ok');
+  ok('non-object JSON (42) → ok', (await postRaw('/event', '42')) === 'ok');
+  ok('malformed /status → ok', (await postRaw('/status', '{oops')) === 'ok');
+  ok('unknown hook event → ok', (await postRaw('/event', JSON.stringify({ hook_event_name: 'WhoKnows' }))) === 'ok');
+  s = await health();
+  ok('daemon still healthy after garbage', s && s.phase === 'alive');
+  // event flood: 60 sub-agent spawns → birds capped at 5
+  for (let i = 0; i < 60; i++) await post('/event', { hook_event_name: 'PreToolUse', tool_name: 'Task', tool_input: { description: 'f' + i } });
+  s = await health();
+  check('birds capped at 5 under a 60-spawn flood', s.birds.length, 5);
+  // relief amid a flood: reliefSeq must still advance, no wedge
+  await post('/event', { hook_event_name: 'PreCompact' });
+  const seqBefore = (await health()).reliefSeq;
+  for (let i = 0; i < 20; i++) await post('/event', { hook_event_name: 'PostToolUse', tool_name: 'Read' });
+  await post('/event', { hook_event_name: 'PreCompact' });
+  await sleep(120);
+  s = await health();
+  ok('relief still fires amid a flood (reliefSeq advances)', s.reliefSeq > seqBefore, `(${s.reliefSeq} vs ${seqBefore})`);
+  // SubagentStop underflow: more stops than births must never go negative
+  for (let i = 0; i < 12; i++) await post('/event', { hook_event_name: 'SubagentStop' });
+  s = await health();
+  ok('bird count never goes negative', s.birds.length === 0);
+  // rapid mood thrash via /set → no crash, ends sane
+  for (const m of ['happy', 'sad', 'excited', 'oops', 'thinking', 'idle', 'tired']) await fetch(BASE + '/set?mood=' + m);
+  await sleep(2200);                                  // let the relief deflation interval finish cleanly
+  s = await health();
+  ok('daemon healthy after rapid mood thrash + relief settle', s && typeof s.mood === 'string' && s.phase === 'alive');
+
 } catch (e) {
   fail++; fails.push('  ✗ threw: ' + e.message + '\n' + (e.stack || ''));
 } finally {

@@ -409,7 +409,8 @@ on his screen, sound cuteness, personality "vibes." Queue these in §11 "For Saa
 **Phase 3:** ☑ B6 ☑ C6 ☑ C3 ☑ C4 ☑ C2  ← Phase 3 COMPLETE
 **Phase 4:** ☑ C5 ☑ C7 ☑ C8  ← Phase 4 COMPLETE · **ALL 21 MILESTONES DONE**
 
-`npm test` last status: **PASS — 715 checks** (279 engine + 112 conformance + 93 doc-lint + 188 detection/consistency + 43 e2e) · Branch: `feat/anim-engine`
+`npm test` last status: **PASS — 725 checks** (279 engine + 112 conformance + 93 doc-lint + 188 detection/consistency + 53 e2e) · Branch: `feat/anim-engine`
+**Backlog progress (post-milestone):** ✅ daemon hardening/fuzz (§9.6 — malformed JSON, 60-spawn flood→cap 5, relief mid-flood, SubagentStop underflow, mood thrash; +10 e2e checks).
 Validated live via Preview MCP: thinking/excited/tired (indexed swap)/sleepy; tool gags reading(glasses)/asking(?+head-tilt)/running(dust) — all render correctly; SSE round-trip works; 0 console errors.
 
 ---

@@ -104,7 +104,7 @@ Claude Code hooks ─curl POST─▶ animayte.mjs ─SSE / HTTP /health─▶ pe
 ```bash
 # edit lib/expressions.mjs (add emoji / keywords / a new face), then:
 npm run assets        # regenerate the spritesheet + manifest
-npm test              # 696 checks: engine, conformance golden, detection, doc-lint, end-to-end
+npm test              # 700+ checks: engine, conformance golden, detection, doc-lint, end-to-end
 ```
 
 Try the interactive **expression tester** at `http://localhost:4321/tester.html` — type

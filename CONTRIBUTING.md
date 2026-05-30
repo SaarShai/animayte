@@ -19,7 +19,7 @@ Thanks for wanting to help! animayte is small and hackable on purpose.
 - `desktop/AnimaytePet.swift` — native macOS floating pet · `desktop/animayte_pet.py` — Tk fallback
 - `animayte.html` — browser renderer + standalone demo
 - `bin/animayte` — universal launcher (`start` / `stop` / `status`)
-- `test/` — run with `npm test` (696 checks, no external deps; includes the conformance
+- `test/` — run with `npm test` (700+ checks, no external deps; includes the conformance
   golden in `test/conformance.mjs` and the doc-lint in `test/docs.test.mjs`)
 
 ## Adding or changing an expression

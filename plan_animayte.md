@@ -405,7 +405,7 @@ on his screen, sound cuteness, personality "vibes." Queue these in §11 "For Saa
 
 **Phase 0:** ☑ A1 ☑ A2 ☑ A6  ← Phase 0 COMPLETE
 **Phase 1:** ☑ A3 ☑ A4 ☑ B1 ☑ C1  ← Phase 1 COMPLETE
-**Phase 2:** ☑ A5 ☐ B2 ☐ B3 ☐ B4 ☐ B5
+**Phase 2:** ☑ A5 ☑ B2 ☐ B3 ☐ B4 ☐ B5
 **Phase 3:** ☐ B6 ☐ C6 ☐ C3 ☐ C4 ☐ C2
 **Phase 4:** ☐ C5 ☐ C7 ☐ C8
 
@@ -471,6 +471,16 @@ A5 validated live via Preview MCP (thinking/excited/tired states, SSE round-trip
   §4.2 role colors, after which the indexed `swapPalette` replaces the tint. (A5)
 - **Validation tooling:** added `.claude/launch.json` (daemon on :4366) so the Preview MCP can drive
   the live page for screenshots. This is how I autonomously QA the browser renderer (G4). (A5)
+- **B2 art = §4.2 palette, sourced FROM the manifest.** The compiler draws the body in the exact
+  `calm` role hexes (hue-shifted ramp: warm rim crown → highlight → base → cool shadowCool base, with
+  an on-palette gel sheen + catchlight). First tried a directional left/right split → harsh blocky
+  seams; reverted to a clean vertical ramp (kept a subtle top-left lift). Because the sheet is now in
+  role colors, the runtime does a REAL indexed palette-swap: pre-bakes a recolored sheet per palette
+  and cross-fades calm→tired by fullness (+ a brief error flash) — replacing the A5 stand-in tint.
+  Validated live: 95% context renders the full cool-teal `tired` ramp. (B2)
+- **Blink "split":** in the baked-sheet model, blink is column 3. True layer separation isn't in this
+  model (deliberate — baked frames keep the 3 thin renderers drift-free per §3.4); B3 adds randomized
+  blink via a runtime timer + per-frame `cell` column indices so breathing doesn't force a blink. (B2→B3)
 
 **For Saar to review / decide (non-blocking — I proceeded with a default):**
 - **Cursor-glance flair has NO real signal** (honest-mirror concern raised in `docs/animation-library.md`

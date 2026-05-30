@@ -20,11 +20,18 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'assets');
 mkdirSync(OUT, { recursive: true });
 
-// ---------- palette ----------
+// ---------- palette (§4.2 hue-shifted role ramp) ----------
+// Sourced from the manifest's `calm` palette so the BAKED sheet is drawn in the exact
+// role colors the runtime's indexed palette-swap expects — sheet + mood-swap stay locked.
+// cool shadows → saturated mid → warm near-yellow rim highlight (reads as real light).
+const hx = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16), h.length >= 9 ? parseInt(h.slice(7, 9), 16) : 255];
+const _M = buildSlimeManifest();
+const CAL = _M.palettes.calm, AC = _M.accentColors;
 const P = {
-  lite: [186, 246, 212], base: [111, 224, 173], mid: [76, 197, 146], dark: [47, 158, 114], out: [27, 104, 76],
-  white: [255, 255, 255], pup: [44, 54, 66], cheek: [255, 150, 178], mouth: [70, 44, 56], tongue: [232, 120, 145],
-  sweat: [125, 198, 255], star: [255, 224, 86], shadow: [38, 96, 74, 70], flush: [255, 120, 150],
+  rim: hx(CAL.rim), lite: hx(CAL.highlight), base: hx(CAL.base), mid: hx(CAL.shadow), dark: hx(CAL.shadowCool), out: hx(CAL.outline),
+  white: hx(CAL.catchlight), pup: hx(CAL.eyeDark), cheek: hx(CAL.blush), flush: hx(CAL.blush),
+  mouth: hx(CAL.outline), tongue: [232, 120, 145],
+  sweat: hx(AC.sweat), star: hx(AC.warm), shadow: hx(CAL.dropShadow),
   birdB: [126, 170, 255], birdD: [92, 140, 250], beak: [255, 179, 71], birdEye: [30, 46, 74],
 };
 const inEll = (x, y, cx, cy, rx, ry) => { const dx = (x - cx) / rx, dy = (y - cy) / ry; return dx * dx + dy * dy <= 1; };
@@ -146,13 +153,23 @@ export function drawSlime(C, ox, oy, expr, frame) {
       const edgeYtop = (hwAt(y - 1) + ((y - 1 > topY + BH * 0.6) ? Math.sin((y - 1 - topY) * 0.9 + frame) * 0.8 : 0)) < Math.abs(x - cx);
       const edge = edgeX || edgeYtop || y === baseY || y === Math.floor(topY);
       if (edge) { C.px(x, y, P.out); continue; }
-      const ny = (y - topY) / BH;
-      C.px(x, y, ny < 0.18 ? P.lite : ny < 0.45 ? P.base : ny < 0.76 ? P.mid : P.dark);
+      const ny = (y - topY) / BH;                       // 0 top → 1 bottom
+      const nx = (x - cx) / Math.max(1, hw);            // -1 left → +1 right
+      // hue-shifted ramp (§4.2): warm rim crown → highlight → base → cool shadow at the base.
+      // Mostly vertical (light from above) with a gentle top-left lift — no hard seams.
+      let col;
+      if (ny < 0.10) col = P.rim;                       // bright gel crown
+      else if (ny < 0.30) col = P.lite;
+      else if (ny < 0.58) col = (nx < -0.35 && ny < 0.42) ? P.lite : P.base;  // subtle left lift
+      else if (ny < 0.82) col = P.mid;
+      else col = P.dark;                                // cool core shadow at the base
+      C.px(x, y, col);
     }
   }
   const cy = topY + BH * 0.54;
-  for (let y = -8; y <= 4; y++) for (let x = -5; x <= 4; x++) if ((x / 5) ** 2 + (y / 8) ** 2 <= 1) C.px(cx - 8 + x, topY + 13 + y, [255, 255, 255, 60]);
-  C.px(cx - 10, topY + 8, [255, 255, 255, 230]); C.px(cx - 9, topY + 8, [255, 255, 255, 150]);
+  // small soft gel sheen + a 1px catchlight, upper-left (on-palette → survives a mood swap)
+  for (let y = -5; y <= 3; y++) for (let x = -4; x <= 3; x++) if ((x / 4) ** 2 + (y / 5) ** 2 <= 1) C.px(cx - 9 + x, topY + 11 + y, [...P.rim, 55]);
+  C.px(cx - 10, topY + 8, P.white); C.px(cx - 9, topY + 8, [...P.white, 150]);
 
   // ---- face (from the dictionary spec) ----
   const f = expr.face;

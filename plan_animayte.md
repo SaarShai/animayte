@@ -404,12 +404,12 @@ on his screen, sound cuteness, personality "vibes." Queue these in §11 "For Saa
 ## 10. Progress checklist *(executing agent: keep this current)*
 
 **Phase 0:** ☑ A1 ☑ A2 ☑ A6  ← Phase 0 COMPLETE
-**Phase 1:** ☐ A3 ☐ A4 ☐ B1 ☐ C1
+**Phase 1:** ☑ A3 ☐ A4 ☑ B1 ☐ C1
 **Phase 2:** ☐ A5 ☐ B2 ☐ B3 ☐ B4 ☐ B5
 **Phase 3:** ☐ B6 ☐ C6 ☐ C3 ☐ C4 ☐ C2
 **Phase 4:** ☐ C5 ☐ C7 ☐ C8
 
-`npm test` last status: **PASS — 366 checks** (150 engine + 188 detection/consistency + 28 e2e) · Branch: `feat/anim-engine`
+`npm test` last status: **PASS — 382 checks** (166 engine + 188 detection/consistency + 28 e2e) · Branch: `feat/anim-engine`
 
 ---
 
@@ -441,8 +441,21 @@ on his screen, sound cuteness, personality "vibes." Queue these in §11 "For Saa
   (volume-conservation sweep). I Read these PNGs to QA craft autonomously. Output is gitignored
   (regenerable: `node tools/preview.mjs`). **QA'd:** contact-sheet (8 faces read distinctly),
   react filmstrip (anticipation→stretch→settle visible), squash sweep (volume conserved). (A6)
+- **Compositor works on flat RGBA buffers** (same straight-alpha format as the Canvas), so the web
+  runtime, preview, and conformance golden share one path. `swapPalette` is keyed by color, so roles
+  that share a hex (eyeDark == outline) coalesce — intentional. Palette-swap tested on synthetic
+  fixtures + the real calm→tired ramp (decoupled from the art-palette migration, which is B2). (A3)
+- **B1 taxonomy doc** (`docs/animation-library.md`, 294 lines) formalizes §5 as manifest-shaped
+  reaction tuples + a signal-coverage audit. Flagged honest-mirror concerns (cursor-glance, derived
+  waiting/idle) — see For-Saar above. Tool sub-category poses depend on C6 classification. (B1)
 
 **For Saar to review / decide (non-blocking — I proceeded with a default):**
+- **Cursor-glance flair has NO real signal** (honest-mirror concern raised in `docs/animation-library.md`
+  open-Q #4). It's the one taxonomy row not backed by a measured signal — scoped to web-renderer mouse
+  flair only. Default: keep it (web-only, clearly "flair"), but happy to cut it to stay strictly
+  honest-mirror. Your call.
+- The Grep/Glob overlap between **Reading** and **Searching** poses is the fuzziest tool mapping
+  (animation-library.md open-Q #2); I'll default Grep→searching, Glob→reading and tune in B6.
 - Art taste on v2 expressions & the reading/running gags (contact-sheets in `tools/preview-out/`).
 - Native window aesthetics on a real screen (`bin/animayte start`).
 - Sound: cuteness + whether to ship enabled-by-default-off vs. fully omit for v1.

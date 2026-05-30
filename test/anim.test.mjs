@@ -14,7 +14,8 @@ import {
   identity, squash, squashRound, compose, composeAll, lerpTransform, sampleTrack, applyToBox,
 } from '../lib/anim/transform.mjs';
 import { validateManifest, assertManifest, buildSlimeManifest, FORMAT } from '../lib/anim/manifest.mjs';
-import { readPngHeader } from '../lib/anim/png.mjs';
+import { readPngHeader, hexToRgba } from '../lib/anim/png.mjs';
+import { composite, swapPalette, buildSwap, computeOutline, alphaMask } from '../lib/anim/compositor.mjs';
 import { contactSheet, clipFilmstrip, squashStrip } from '../tools/preview.mjs';
 import { EXPRESSIONS } from '../lib/expressions.mjs';
 import { readFileSync } from 'node:fs';
@@ -193,6 +194,78 @@ const f10 = clipFilmstrip('react', { steps: 10, scale: 3 });
 ok('filmstrip width scales with frame count', f10.w === 10 * 64 * 3 && f10.w > f6.w);
 ok('unknown clip throws a clear error', (() => { try { clipFilmstrip('nope'); return false; } catch (e) { return /unknown clip/.test(e.message); } })());
 ok('squashStrip renders a valid PNG', readPngHeader(squashStrip({ steps: 5 }).png).sig === true);
+
+// ───────────────────────────────────────────────────────────────────────────
+console.log('\nEngine — COMPOSITOR + PALETTE SWAP (A3)');
+
+// tiny RGBA buffer helpers
+const buf = (W, H) => new Uint8Array(W * H * 4);
+const setPx = (b, W, x, y, c) => { const i = (y * W + x) * 4; b[i] = c[0]; b[i + 1] = c[1]; b[i + 2] = c[2]; b[i + 3] = c[3] ?? 255; };
+const getPx = (b, W, x, y) => { const i = (y * W + x) * 4; return [b[i], b[i + 1], b[i + 2], b[i + 3]]; };
+const eqPx = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
+
+console.log('  · composite stacks layers bottom→top (exact pixels)');
+{
+  const W = 2, H = 1;
+  const A = buf(W, H); setPx(A, W, 0, 0, [255, 0, 0, 255]); setPx(A, W, 1, 0, [255, 0, 0, 255]); // red base
+  const B = buf(W, H); setPx(B, W, 0, 0, [0, 0, 255, 255]); setPx(B, W, 1, 0, [0, 255, 0, 128]); // blue opaque + half green
+  const out = composite([A, B], W, H);
+  ok('opaque top layer fully covers', eqPx(getPx(out, W, 0, 0), [0, 0, 255, 255]));
+  // α=128/255 → R=255·(127/255)=127, G=255·(128/255)=128, over an opaque red base
+  ok('half-alpha green over red = exact blend [127,128,0,255]', eqPx(getPx(out, W, 1, 0), [127, 128, 0, 255]));
+}
+{
+  const W = 1, H = 1;
+  const A = buf(W, H); setPx(A, W, 0, 0, [10, 20, 30, 255]);
+  const out = composite([A, buf(W, H)], W, H); // empty top layer changes nothing
+  ok('empty/transparent layer is a no-op', eqPx(getPx(out, W, 0, 0), [10, 20, 30, 255]));
+}
+
+console.log('  · indexed palette-swap re-indexes ramp colors, keeps alpha');
+{
+  const W = 3, H = 1;
+  const from = { base: '#5BC661', shadow: '#2E7D4F' };
+  const to = { base: '#E04A4A', shadow: '#8E2C30' };
+  const swap = buildSwap(from, to);
+  ok('buildSwap covers every shared role', swap.size === 2);
+  const b = buf(W, H);
+  setPx(b, W, 0, 0, hexToRgba('#5BC661'));      // base
+  setPx(b, W, 1, 0, [...hexToRgba('#2E7D4F').slice(0, 3), 128]); // shadow @ half alpha
+  setPx(b, W, 2, 0, [10, 10, 10, 255]);         // unmapped color
+  swapPalette(b, swap);
+  ok('base re-indexed', eqPx(getPx(b, W, 0, 0), hexToRgba('#E04A4A')));
+  ok('shadow re-indexed, alpha preserved', eqPx(getPx(b, W, 1, 0), [...hexToRgba('#8E2C30').slice(0, 3), 128]));
+  ok('unmapped color untouched', eqPx(getPx(b, W, 2, 0), [10, 10, 10, 255]));
+}
+{
+  // every ramp color of the real calm palette maps under a calm→tired swap
+  const m = buildSlimeManifest();
+  const swap = buildSwap(m.palettes.calm, m.palettes.tired);
+  const calmRoles = Object.keys(m.palettes.calm);
+  // some roles legitimately share a color (eyeDark == outline == the dark ink), and a
+  // swap is keyed by color → assert every DISTINCT calm color is mapped.
+  const distinct = new Set(calmRoles.map((r) => { const c = hexToRgba(m.palettes.calm[r]); return (c[0] << 16) | (c[1] << 8) | c[2]; }));
+  ok('calm→tired swap maps every distinct calm ramp color', swap.size === distinct.size);
+  const probe = buf(1, 1); setPx(probe, 1, 0, 0, hexToRgba(m.palettes.calm.base));
+  swapPalette(probe, swap);
+  ok('a calm-base pixel becomes the tired-base color', eqPx(getPx(probe, 1, 0, 0), hexToRgba(m.palettes.tired.base)));
+}
+
+console.log('  · computeOutline produces a 1px silhouette ring');
+{
+  const W = 5, H = 5;
+  const b = buf(W, H); setPx(b, W, 2, 2, [100, 200, 100, 255]); // single solid pixel
+  const out = computeOutline(b, W, H, '#16352B');
+  const ink = hexToRgba('#16352B');
+  ok('4-neighbour above is outline', eqPx(getPx(out, W, 2, 1), ink));
+  ok('4-neighbour left is outline', eqPx(getPx(out, W, 1, 2), ink));
+  ok('the solid pixel itself is NOT outline', getPx(out, W, 2, 2)[3] === 0);
+  ok('a diagonal-only neighbour is NOT outline (4-conn)', getPx(out, W, 1, 1)[3] === 0);
+  ok('a far pixel is NOT outline', getPx(out, W, 0, 0)[3] === 0);
+  const outD = computeOutline(b, W, H, '#16352B', { diagonal: true });
+  ok('diagonal mode fills the corner', eqPx(getPx(outD, W, 1, 1), ink));
+}
+ok('alphaMask flags solids', (() => { const W = 2, H = 1; const b = buf(W, H); setPx(b, W, 0, 0, [1, 2, 3, 255]); const m = alphaMask(b, W, H); return m[0] === 1 && m[1] === 0; })());
 
 // ───────────────────────────────────────────────────────────────────────────
 const total = pass + fail;

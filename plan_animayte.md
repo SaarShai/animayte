@@ -403,13 +403,13 @@ on his screen, sound cuteness, personality "vibes." Queue these in §11 "For Saa
 
 ## 10. Progress checklist *(executing agent: keep this current)*
 
-**Phase 0:** ☑ A1 ☑ A2 ☐ A6
+**Phase 0:** ☑ A1 ☑ A2 ☑ A6  ← Phase 0 COMPLETE
 **Phase 1:** ☐ A3 ☐ A4 ☐ B1 ☐ C1
 **Phase 2:** ☐ A5 ☐ B2 ☐ B3 ☐ B4 ☐ B5
 **Phase 3:** ☐ B6 ☐ C6 ☐ C3 ☐ C4 ☐ C2
 **Phase 4:** ☐ C5 ☐ C7 ☐ C8
 
-`npm test` last status: **PASS — 353 checks** (137 engine + 188 detection/consistency + 28 e2e) · Branch: `feat/anim-engine`
+`npm test` last status: **PASS — 366 checks** (150 engine + 188 detection/consistency + 28 e2e) · Branch: `feat/anim-engine`
 
 ---
 
@@ -429,6 +429,18 @@ on his screen, sound cuteness, personality "vibes." Queue these in §11 "For Saa
 - **§4.2 target palette lives in the manifest now** (calm/tired/error ramps) but the renderer/
   compiler don't consume it for color yet — that swap lands in A3/B2 to avoid regressing visuals
   mid-foundation. (A1)
+- **Shared PNG/canvas module** `lib/anim/png.mjs` (encoder + RGBA canvas + header decoder + a tiny
+  3×5 bitmap font + blitScaled). Extracted the encoder out of `make-assets.mjs` so the compiler,
+  the offline preview, and the tests share ONE encoder (no drift). Verified the refactor keeps
+  `slime.png`/`bird.png` BYTE-IDENTICAL. (A6)
+- **`tools/make-assets.mjs` now also emits the manifest** and guards its build behind a
+  `import.meta.url === argv[1]` main-check so `tools/preview.mjs` can import `drawSlime` without
+  triggering file writes. (A6)
+- **`tools/preview.mjs` is the validation backbone** — `contactSheet()` (all expr×frame, labelled),
+  `clipFilmstrip()` (samples a clip's transform track → S&S reads left→right), `squashStrip()`
+  (volume-conservation sweep). I Read these PNGs to QA craft autonomously. Output is gitignored
+  (regenerable: `node tools/preview.mjs`). **QA'd:** contact-sheet (8 faces read distinctly),
+  react filmstrip (anticipation→stretch→settle visible), squash sweep (volume conserved). (A6)
 
 **For Saar to review / decide (non-blocking — I proceeded with a default):**
 - Art taste on v2 expressions & the reading/running gags (contact-sheets in `tools/preview-out/`).

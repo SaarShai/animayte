@@ -14,7 +14,14 @@ import {
   identity, squash, squashRound, compose, composeAll, lerpTransform, sampleTrack, applyToBox,
 } from '../lib/anim/transform.mjs';
 import { validateManifest, assertManifest, buildSlimeManifest, FORMAT } from '../lib/anim/manifest.mjs';
+import { readPngHeader } from '../lib/anim/png.mjs';
+import { contactSheet, clipFilmstrip, squashStrip } from '../tools/preview.mjs';
 import { EXPRESSIONS } from '../lib/expressions.mjs';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 let pass = 0, fail = 0; const fails = [];
 const approx = (a, b, eps = 1e-9) => Math.abs(a - b) <= eps;
@@ -155,6 +162,37 @@ rejects('reaction references unknown clip', (m) => { m.reactions = { Boom: { cli
 rejects('idle.base references unknown clip', (m) => { m.idle.base = 'nope'; }, 'idle.base');
 ok('non-object manifest → single clear error', validateManifest(42).length === 1);
 ok('assertManifest throws on invalid', (() => { try { assertManifest({ format: 'x' }); return false; } catch { return true; } })());
+
+// ───────────────────────────────────────────────────────────────────────────
+console.log('\nEngine — COMPILER + PREVIEW (A6: the "I can SEE it" loop)');
+
+console.log('  · baked assets are valid PNGs (back-compat for thin renderers)');
+const slimePng = readPngHeader(readFileSync(join(ROOT, 'assets/slime.png')));
+ok('slime.png has a valid PNG signature', slimePng.sig === true);
+ok('slime.png is 256×512 (4 frames × 8 expressions @64px)', slimePng.width === 256 && slimePng.height === 512);
+ok('slime.png is 8-bit RGBA (colorType 6)', slimePng.bitDepth === 8 && slimePng.colorType === 6);
+const birdPng = readPngHeader(readFileSync(join(ROOT, 'assets/bird.png')));
+ok('bird.png is a valid 48×24 PNG', birdPng.sig && birdPng.width === 48 && birdPng.height === 24);
+
+console.log('  · the emitted manifest on disk validates');
+const onDisk = JSON.parse(readFileSync(join(ROOT, 'pets/slime/pet.json'), 'utf8'));
+ok('pets/slime/pet.json validates', validateManifest(onDisk).length === 0);
+ok('on-disk manifest matches buildSlimeManifest()', JSON.stringify(onDisk) === JSON.stringify(buildSlimeManifest()));
+
+console.log('  · preview renders readable PNGs with correct dimensions');
+const cs = contactSheet({ scale: 2 });
+const csH = readPngHeader(cs.png);
+ok('contact-sheet PNG header matches returned dims', csH.sig && csH.width === cs.w && csH.height === cs.h);
+ok('contact-sheet has a row per expression', cs.rows === EXPRESSIONS.length && cs.cols === 4);
+
+const f6 = clipFilmstrip('react', { steps: 6, scale: 3 });
+ok('filmstrip width === steps × cell × scale (6×64×3)', f6.w === 6 * 64 * 3);
+const f6H = readPngHeader(f6.png);
+ok('filmstrip PNG header matches returned dims', f6H.sig && f6H.width === f6.w && f6H.height === f6.h);
+const f10 = clipFilmstrip('react', { steps: 10, scale: 3 });
+ok('filmstrip width scales with frame count', f10.w === 10 * 64 * 3 && f10.w > f6.w);
+ok('unknown clip throws a clear error', (() => { try { clipFilmstrip('nope'); return false; } catch (e) { return /unknown clip/.test(e.message); } })());
+ok('squashStrip renders a valid PNG', readPngHeader(squashStrip({ steps: 5 }).png).sig === true);
 
 // ───────────────────────────────────────────────────────────────────────────
 const total = pass + fail;

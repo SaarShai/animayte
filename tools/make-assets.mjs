@@ -9,51 +9,16 @@
  *
  * Output: assets/slime.png (one row per expression), assets/slime.json, assets/bird.png
  */
-import { deflateSync } from 'node:zlib';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { EXPRESSIONS } from '../lib/expressions.mjs';
+import { Canvas, encodePNG } from '../lib/anim/png.mjs';
+import { buildSlimeManifest, validateManifest } from '../lib/anim/manifest.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'assets');
 mkdirSync(OUT, { recursive: true });
-
-// ---------- minimal PNG encoder (RGBA, 8-bit) ----------
-const crcTable = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c >>> 0; } return t; })();
-function crc32(buf) { let c = 0xFFFFFFFF; for (let i = 0; i < buf.length; i++) c = crcTable[(c ^ buf[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
-function chunk(type, dataBuf) {
-  const len = Buffer.alloc(4); len.writeUInt32BE(dataBuf.length, 0);
-  const typeBuf = Buffer.from(type, 'ascii');
-  const crcBuf = Buffer.alloc(4); crcBuf.writeUInt32BE(crc32(Buffer.concat([typeBuf, dataBuf])), 0);
-  return Buffer.concat([len, typeBuf, dataBuf, crcBuf]);
-}
-function encodePNG(W, H, rgba) {
-  const sig = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(W, 0); ihdr.writeUInt32BE(H, 4);
-  ihdr[8] = 8; ihdr[9] = 6; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
-  const stride = W * 4;
-  const raw = Buffer.alloc((stride + 1) * H);
-  for (let y = 0; y < H; y++) { raw[y * (stride + 1)] = 0; for (let x = 0; x < stride; x++) raw[y * (stride + 1) + 1 + x] = rgba[y * stride + x]; }
-  const idat = deflateSync(raw, { level: 9 });
-  return Buffer.concat([sig, chunk('IHDR', ihdr), chunk('IDAT', idat), chunk('IEND', Buffer.alloc(0))]);
-}
-
-// ---------- pixel canvas with alpha compositing ----------
-function Canvas(W, H) {
-  const d = new Uint8Array(W * H * 4);
-  const px = (x, y, c) => {
-    x |= 0; y |= 0; if (x < 0 || y < 0 || x >= W || y >= H) return;
-    const a = (c[3] === undefined ? 255 : c[3]) / 255; if (a <= 0) return;
-    const i = (y * W + x) * 4, da = d[i + 3] / 255, oa = a + da * (1 - a);
-    d[i] = (c[0] * a + d[i] * da * (1 - a)) / oa;
-    d[i + 1] = (c[1] * a + d[i + 1] * da * (1 - a)) / oa;
-    d[i + 2] = (c[2] * a + d[i + 2] * da * (1 - a)) / oa;
-    d[i + 3] = oa * 255;
-  };
-  return { W, H, d, px };
-}
 
 // ---------- palette ----------
 const P = {
@@ -65,9 +30,9 @@ const P = {
 const inEll = (x, y, cx, cy, rx, ry) => { const dx = (x - cx) / rx, dy = (y - cy) / ry; return dx * dx + dy * dy <= 1; };
 const fillEll = (C, cx, cy, rx, ry, col) => { for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) if (inEll(x, y, cx, cy, rx, ry)) C.px(x, y, col); };
 
-const FRAMES = 4;
-const CELL = 64;
-const STATES = EXPRESSIONS.map((e) => e.id);
+export const FRAMES = 4;
+export const CELL = 64;
+export const STATES = EXPRESSIONS.map((e) => e.id);
 
 // ---------- body silhouette (rounded narrow crown, wide flat base) ----------
 function slimeHalfWidth(t, RX) { const s = Math.sin(0.30 + t * (Math.PI / 2 - 0.30)); return RX * Math.pow(s, 0.62); }
@@ -157,7 +122,7 @@ function drawAccents(C, face, cx, cy, eyeY, RX) {
 }
 
 // ---------- one slime cell ----------
-function drawSlime(C, ox, oy, expr, frame) {
+export function drawSlime(C, ox, oy, expr, frame) {
   const p = frame / FRAMES;
   const wob = Math.sin(p * Math.PI * 2);
   const hop = Math.max(0, Math.sin(p * Math.PI)) * 2;
@@ -221,5 +186,22 @@ function drawBird(C, ox, oy, up) {
 }
 function buildBird() { const C = Canvas(48, 24); drawBird(C, 0, 0, true); drawBird(C, 24, 0, false); writeFileSync(join(OUT, 'bird.png'), encodePNG(48, 24, C.d)); console.log('bird.png   48x24'); }
 
-buildSlime(); buildBird();
-console.log('done →', OUT);
+// ---------- pet manifest (the data-driven pet-pack) ----------
+// Generated from the SAME EXPRESSIONS source of truth, so the baked spritesheet and
+// the manifest never disagree. Validated before writing — never emit a bad pack.
+function buildManifest() {
+  const m = buildSlimeManifest();
+  const errs = validateManifest(m);
+  if (errs.length) { console.error('✗ slime manifest invalid:\n  - ' + errs.join('\n  - ')); process.exit(1); }
+  const dir = join(ROOT, 'pets', 'slime');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'pet.json'), JSON.stringify(m, null, 2) + '\n');
+  console.log(`pet.json   slime  ${Object.keys(m.expressions).length} expressions, ${Object.keys(m.clips).length} clips, ${Object.keys(m.palettes).length} palettes`);
+}
+
+// run the build only when executed directly — importing drawSlime/CELL/etc. (the
+// preview tool does) must NOT write files as a side effect.
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+  buildSlime(); buildBird(); buildManifest();
+  console.log('done →', OUT);
+}

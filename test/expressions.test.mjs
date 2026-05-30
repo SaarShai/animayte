@@ -114,6 +114,7 @@ const daemonSrc = readFileSync(join(ROOT, 'animayte.mjs'), 'utf8');
 const swiftSrc  = readFileSync(join(ROOT, 'desktop/AnimaytePet.swift'), 'utf8');
 const htmlSrc   = readFileSync(join(ROOT, 'animayte.html'), 'utf8');
 const slimeJson = JSON.parse(readFileSync(join(ROOT, 'assets/slime.json'), 'utf8'));
+const pySrc     = readFileSync(join(ROOT, 'desktop/animayte_pet.py'), 'utf8');
 
 // 2a. the generated spritesheet has exactly the dictionary's rows, in order
 check('slime.json states == dictionary ids', JSON.stringify(slimeJson.states), JSON.stringify(EXPRESSIONS.map((e) => e.id)));
@@ -146,6 +147,14 @@ check('HTML STATES == dictionary ids', JSON.stringify(htmlStates), JSON.stringif
 const htmlMapMatch = htmlSrc.match(/const moodState = m => \(\{([^}]+)\}/);
 const htmlKeys = htmlMapMatch ? [...htmlMapMatch[1].matchAll(/([a-z]+)\s*:/g)].map((m) => m[1]) : [];
 for (const m of uniqueDaemonMoods) ok(`HTML moodState maps '${m}'`, htmlKeys.includes(m));
+
+// 2e. Python pet (cross-platform fallback) renders the SAME spritesheet rows + maps every daemon mood
+const pyRowsMatch = pySrc.match(/ROWS = \[([^\]]+)\]/);
+const pyRows = pyRowsMatch ? pyRowsMatch[1].split(',').map((s) => s.trim().replace(/['"]/g, '')) : [];
+check('Python ROWS == dictionary ids', JSON.stringify(pyRows), JSON.stringify(EXPRESSIONS.map((e) => e.id)));
+const pyMapMatch = pySrc.match(/MOOD_TO_ROW = \{([^}]+)\}/);
+const pyKeys = pyMapMatch ? [...pyMapMatch[1].matchAll(/'([a-z]+)'\s*:/g)].map((m) => m[1]) : [];
+for (const m of uniqueDaemonMoods) ok(`Python MOOD_TO_ROW maps '${m}'`, pyKeys.includes(m));
 
 // ─────────────────────────────────────────────────────────────────────────
 const total = pass + fail;

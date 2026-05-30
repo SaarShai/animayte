@@ -313,7 +313,8 @@
         try{ const h=await fetch('/health').then(r=>r.json()); const st=(h&&h.state)||{}; pet=st.pet||'slime'; personaName=st.personality||'adaptive'; sound=st.sound===true; if(typeof st.volume==='number') volume=st.volume; }catch(_){}
         let personality=null;
         try{ personality=await fetch('/personalities/'+personaName+'.json').then(r=>r.ok?r.json():null); }catch(_){}
-        ctrl=await mod.createRuntime(cv,{ manifestUrl:'/pets/'+pet+'/pet.json', personality, sound, volume });
+        const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        ctrl=await mod.createRuntime(cv,{ manifestUrl:'/pets/'+pet+'/pet.json', personality, sound, volume, reduceMotion });
       }catch(e){ console.warn('animayte: rich runtime unavailable, using legacy renderer', e); ctrl=makeLegacy(); }
     } else {
       ctrl=makeLegacy();

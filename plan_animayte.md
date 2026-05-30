@@ -419,6 +419,11 @@ on his screen, sound cuteness, personality "vibes." Queue these in §11 "For Saa
   lib. Validated LIVE: `ANIMAYTE_PET=bean ANIMAYTE_PERSONALITY=chipper` loads via the pack loader and
   renders the amber bean with identical face craft + an orbiting bird. Proves G2/G3: the library
   drops onto any design.
+- ✅ **Reduced-motion accessibility** — the runtime honours `prefers-reduced-motion` (page passes
+  `matchMedia` → `opts.reduceMotion`): DAMPENS movement (squash/breathing ×0.25) + silences particles,
+  but KEEPS the information (expression/palette/prop still change — honest mirror, not faked-away).
+  Validated live (opts path honored). *Preview gotcha: the browser caches ES modules per URL — after
+  editing `runtime.mjs`, cache-bust the dynamic import (`?v=`) or hard-reload to test the new code.*
 Validated live via Preview MCP: thinking/excited/tired (indexed swap)/sleepy; tool gags reading(glasses)/asking(?+head-tilt)/running(dust) — all render correctly; SSE round-trip works; 0 console errors.
 
 ---

@@ -24,6 +24,7 @@ const PORT = process.env.ANIMAYTE_PORT ? Number(process.env.ANIMAYTE_PORT) : 432
 // ---- live session state (everything the pet can reflect graphically) ----
 const state = {
   phase: 'alive', mood: 'idle', fullness: 0, birds: [] /* {id,label} */,
+  pet: process.env.ANIMAYTE_PET || 'slime',   // which pet pack the renderers should load (pets/<pet>/)
   // rich signals (see docs/session-signals.md):
   model: null, ctxPct: 0, ctxTokens: 0, ctxWindow: 0,
   costUsd: 0, linesAdded: 0, linesRemoved: 0,

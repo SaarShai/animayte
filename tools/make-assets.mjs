@@ -170,9 +170,13 @@ function buildSlime() {
   const W = CELL * FRAMES, H = CELL * STATES.length;
   const C = Canvas(W, H);
   EXPRESSIONS.forEach((expr, r) => { for (let fr = 0; fr < FRAMES; fr++) drawSlime(C, fr * CELL, r * CELL, expr, fr); });
-  writeFileSync(join(OUT, 'slime.png'), encodePNG(W, H, C.d));
+  const png = encodePNG(W, H, C.d);
+  writeFileSync(join(OUT, 'slime.png'), png);                 // back-compat path for thin renderers
   writeFileSync(join(OUT, 'slime.json'), JSON.stringify({ cell: CELL, frames: FRAMES, states: STATES, apple: Object.fromEntries(EXPRESSIONS.map((e) => [e.id, e.apple])) }, null, 2));
-  console.log(`slime.png  ${W}x${H}  rows: ${STATES.join(', ')}`);
+  // self-contained pet pack: pets/slime/sheet.png (referenced by the manifest's `sheet`)
+  const packDir = join(ROOT, 'pets', 'slime'); mkdirSync(packDir, { recursive: true });
+  writeFileSync(join(packDir, 'sheet.png'), png);
+  console.log(`slime.png  ${W}x${H}  rows: ${STATES.join(', ')}  (+ pets/slime/sheet.png)`);
 }
 
 // ---------- bird (sub-agent) ----------

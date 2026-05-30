@@ -1,0 +1,61 @@
+{
+  "format": "animayte-pet/1",
+  "name": "bean",
+  "cell": 64,
+  "anchor": [0.5, 1],
+  "layers": ["shadow", "outline", "body", "eyes", "mouth", "brows"],
+  "palettes": {
+    "calm": {
+      "shadowCool": "#7A4A12",
+      "shadow": "#B8893A",
+      "base": "#E8C16A",
+      "highlight": "#F6E0A0",
+      "rim": "#FFF4D0",
+      "outline": "#5A3E16",
+      "dropShadow": "#3A280E59",
+      "eyeDark": "#5A3E16",
+      "catchlight": "#FFF7E6"
+    }
+  },
+  "defaultPalette": "calm",
+  "expressions": {
+    "neutral": { "eyes": "dots", "mouth": "slight_smile" },
+    "happy": { "eyes": "happy_arc", "mouth": "open_smile" },
+    "thinking": { "eyes": "look_up", "brows": "one_raised", "mouth": "flat_skew" },
+    "sad": { "eyes": "open", "brows": "sad", "mouth": "frown" },
+    "sleepy": { "eyes": "closed", "mouth": "small", "accents": ["zzz"] }
+  },
+  "clips": {
+    "idle": {
+      "loop": true,
+      "frames": [{ "dur": 500 }, { "dur": 500 }],
+      "tracks": {
+        "body": [
+          { "t": 0, "sy": 1 },
+          { "t": 0.5, "sy": 1.04, "ease": "easeInOutSine" },
+          { "t": 1, "sy": 1, "ease": "easeInOutSine" }
+        ]
+      }
+    },
+    "react": {
+      "loop": false,
+      "frames": [{ "dur": 90 }, { "dur": 130 }, { "dur": 160 }],
+      "tracks": {
+        "body": [
+          { "t": 0, "sy": 0.9, "ease": "easeOutQuad" },
+          { "t": 0.5, "sy": 1.12, "ease": "easeOutBack" },
+          { "t": 1, "sy": 1, "ease": "easeOutBounce" }
+        ]
+      }
+    }
+  },
+  "props": {},
+  "reactions": {},
+  "idle": {
+    "base": "idle",
+    "blink": { "minMs": 3000, "maxMs": 6000 },
+    "secondary": [],
+    "boredAfterMs": 30000
+  },
+  "note": "Stub pack: proves the animayte-pet/1 format is reusable by a second design. Art (sheet) is a follow-up; the loader resolves it as a sheet-less pack for now."
+}

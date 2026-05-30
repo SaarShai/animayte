@@ -404,12 +404,12 @@ on his screen, sound cuteness, personality "vibes." Queue these in §11 "For Saa
 ## 10. Progress checklist *(executing agent: keep this current)*
 
 **Phase 0:** ☑ A1 ☑ A2 ☑ A6  ← Phase 0 COMPLETE
-**Phase 1:** ☑ A3 ☐ A4 ☑ B1 ☐ C1
+**Phase 1:** ☑ A3 ☑ A4 ☑ B1 ☑ C1  ← Phase 1 COMPLETE
 **Phase 2:** ☐ A5 ☐ B2 ☐ B3 ☐ B4 ☐ B5
 **Phase 3:** ☐ B6 ☐ C6 ☐ C3 ☐ C4 ☐ C2
 **Phase 4:** ☐ C5 ☐ C7 ☐ C8
 
-`npm test` last status: **PASS — 382 checks** (166 engine + 188 detection/consistency + 28 e2e) · Branch: `feat/anim-engine`
+`npm test` last status: **PASS — 420 checks** (204 engine + 188 detection/consistency + 28 e2e) · Branch: `feat/anim-engine`
 
 ---
 
@@ -448,6 +448,18 @@ on his screen, sound cuteness, personality "vibes." Queue these in §11 "For Saa
 - **B1 taxonomy doc** (`docs/animation-library.md`, 294 lines) formalizes §5 as manifest-shaped
   reaction tuples + a signal-coverage audit. Flagged honest-mirror concerns (cursor-glance, derived
   waiting/idle) — see For-Saar above. Tool sub-category poses depend on C6 classification. (B1)
+- **State machine is deterministic by injection** (`tick(dt)` + `opts.rng`) so timelines replay
+  exactly in tests. Reactions are TRANSIENT and always `return` to idle (recovery-never-punishment is
+  structural, not just convention). Priority arbitration: a strictly-higher reaction interrupts; a
+  lower one is dropped while a higher one plays. (A4)
+- **Pet pack = a folder** (`pets/<name>/pet.json` [+ `sheet.png`]). The slime is now a self-contained
+  pack (compiler writes `pets/slime/sheet.png`; `assets/slime.png` stays byte-identical for thin
+  renderers). A hand-authored **`pets/bean/`** stub proves format reusability. `ANIMAYTE_PET` env
+  selects the pack (daemon `state.pet`, threaded through `bin/animayte`). NOTE: I created `pets/` dirs
+  by WRITING files into them (no `mv`), per Drive-safety. (C1)
+- **Browser-safety call for A5:** the web runtime will import only `easing/transform/state-machine`
+  (pure, no `node:` imports) over http; it must NOT import `compositor`/`png` (they pull `node:zlib`).
+  Palette swap in-browser uses Canvas2D, not the Node compositor. (planning A5)
 
 **For Saar to review / decide (non-blocking — I proceeded with a default):**
 - **Cursor-glance flair has NO real signal** (honest-mirror concern raised in `docs/animation-library.md`

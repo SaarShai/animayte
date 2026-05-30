@@ -16,9 +16,12 @@ import {
 import { validateManifest, assertManifest, buildSlimeManifest, FORMAT } from '../lib/anim/manifest.mjs';
 import { readPngHeader, hexToRgba } from '../lib/anim/png.mjs';
 import { composite, swapPalette, buildSwap, computeOutline, alphaMask } from '../lib/anim/compositor.mjs';
+import { createStateMachine, clipDuration, frameAt, FrameResult } from '../lib/anim/state-machine.mjs';
 import { contactSheet, clipFilmstrip, squashStrip } from '../tools/preview.mjs';
+import { listPacks, loadPack, resolvePetName, DEFAULT_PETS_DIR } from '../lib/anim/loader.mjs';
 import { EXPRESSIONS } from '../lib/expressions.mjs';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -266,6 +269,135 @@ console.log('  · computeOutline produces a 1px silhouette ring');
   ok('diagonal mode fills the corner', eqPx(getPx(outD, W, 1, 1), ink));
 }
 ok('alphaMask flags solids', (() => { const W = 2, H = 1; const b = buf(W, H); setPx(b, W, 0, 0, [1, 2, 3, 255]); const m = alphaMask(b, W, H); return m[0] === 1 && m[1] === 0; })());
+
+// ───────────────────────────────────────────────────────────────────────────
+console.log('\nEngine — STATE MACHINE (A4)');
+
+// deterministic RNG so timelines replay exactly
+function mulberry32(a) { return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+const TM = {
+  defaultPalette: 'calm',
+  palettes: { calm: {}, tired: {}, error: {} },
+  clips: {
+    idle: { loop: true, frames: [{ dur: 400 }, { dur: 400 }] },          // 800, loops
+    bored: { loop: true, frames: [{ dur: 500 }] },
+    lookAround: { loop: false, frames: [{ dur: 200 }, { dur: 200 }] },   // 400 one-shot
+    wobble: { loop: false, frames: [{ dur: 150 }, { dur: 150 }] },       // 300
+    yawn: { loop: false, frames: [{ dur: 300 }] },                       // 300
+    reading: { loop: true, frames: [{ dur: 300 }] },                     // loop (runs until interrupted)
+    errorClip: { loop: false, frames: [{ dur: 250 }] },                  // 250 one-shot
+    success: { loop: false, frames: [{ dur: 200 }] },                    // 200 one-shot
+  },
+  reactions: {
+    Reading: { clip: 'reading', expression: 'thinking', palette: 'calm', priority: 3, return: 'idle' },
+    Error: { clip: 'errorClip', expression: 'sad', palette: 'error', priority: 5, return: 'idle' },
+    Success: { clip: 'success', expression: 'happy', palette: 'calm', priority: 4, return: 'idle' },
+    Tiny: { clip: 'success', expression: 'happy', priority: 1, return: 'idle' },
+  },
+  idle: { base: 'idle', secondary: ['lookAround', 'wobble', 'yawn'], boredClip: 'bored', boredAfterMs: 5000 },
+};
+
+console.log('  · clip timing helpers');
+ok('clipDuration sums frame durs', clipDuration(TM.clips.idle) === 800);
+ok('frameAt picks frame 0 early', frameAt(TM.clips.idle, 100).index === 0);
+ok('frameAt picks frame 1 mid', frameAt(TM.clips.idle, 500).index === 1);
+ok('frameAt loops past total', frameAt(TM.clips.idle, 900).index === 0);
+near('frameAt loop t wraps', frameAt(TM.clips.idle, 900).t, 100 / 800, 1e-9);
+ok('FrameResult enum present', FrameResult.CONTINUE && FrameResult.COMPLETE && FrameResult.CANCEL);
+
+console.log('  · boots into idle, reacts, and auto-returns to idle');
+{
+  const sm = createStateMachine(TM, { rng: mulberry32(1), secondaryEveryMs: 100000 }); // no secondaries
+  ok('boots idle', sm.current().kind === 'idle' && sm.current().clip === 'idle');
+  sm.react('Success');
+  ok('reaction takes over', sm.current().kind === 'reaction' && sm.current().clip === 'success' && sm.current().expression === 'happy');
+  sm.tick(150); ok('one-shot still playing mid-clip', sm.current().clip === 'success');
+  sm.tick(100); ok('one-shot auto-returns to idle after its duration', sm.current().kind === 'idle');
+}
+
+console.log('  · priority: higher interrupts, lower is ignored mid-play');
+{
+  const sm = createStateMachine(TM, { rng: mulberry32(2), secondaryEveryMs: 100000 });
+  sm.react('Reading');
+  ok('reading (loop) active', sm.current().clip === 'reading' && sm.current().priority === 3);
+  sm.tick(1000); ok('looping reaction persists across ticks', sm.current().clip === 'reading');
+  sm.react('Error');
+  ok('error (pri 5) interrupts reading (pri 3)', sm.current().clip === 'errorClip' && sm.current().palette === 'error');
+  const ignored = sm.react('Tiny'); // pri 1 during error
+  ok('lower-priority reaction ignored while higher one plays', ignored === null && sm.current().clip === 'errorClip');
+  sm.tick(250); ok('error one-shot returns to idle (recovery, not stuck)', sm.current().kind === 'idle');
+  ok('after return, a reaction is accepted again', sm.react('Tiny') !== null && sm.current().clip === 'success');
+}
+
+console.log('  · secondary idles never repeat back-to-back (anti-repetition)');
+{
+  const sm = createStateMachine(TM, { rng: mulberry32(7), secondaryEveryMs: 900 });
+  for (let i = 0; i < 240; i++) sm.tick(100); // 24s of idle fidgeting (< 30s default, but TM bored=5s…)
+  const secs = sm.log.filter((e) => e.kind === 'secondary').map((e) => e.clip);
+  ok('several secondaries fired', secs.length >= 3);
+  let noRepeat = true;
+  for (let i = 1; i < secs.length; i++) if (secs[i] === secs[i - 1]) noRepeat = false;
+  ok('no secondary repeats immediately', noRepeat);
+  ok('every secondary is from the pool', secs.every((c) => TM.idle.secondary.includes(c)));
+}
+
+console.log('  · bored after inactivity, and activity un-bores');
+{
+  const sm = createStateMachine(TM, { rng: mulberry32(3), secondaryEveryMs: 100000 }); // no secondary noise
+  let sawBored = false;
+  for (let i = 0; i < 80; i++) { sm.tick(100); if (sm.current().kind === 'bored') sawBored = true; } // 8s > 5s
+  ok('slips into bored after the inactivity threshold', sawBored && sm.current().kind === 'bored');
+  sm.react('Success');
+  ok('activity interrupts bored immediately', sm.current().kind === 'reaction');
+  sm.tick(200); // success completes
+  ok('returns to plain idle (bored timer reset by the activity)', sm.current().kind === 'idle' && sm.current().bored === false);
+}
+
+console.log('  · unknown reaction is ignored, never throws');
+{
+  const sm = createStateMachine(TM, { rng: mulberry32(9) });
+  ok('unknown reaction → null, state unchanged', sm.react('Nope') === null && sm.current().kind === 'idle');
+  ok('explicit reaction object works', sm.react({ clip: 'success', expression: 'excited', priority: 2 }) !== null && sm.current().expression === 'excited');
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+console.log('\nEngine — PET-PACK LOADER (C1)');
+
+console.log('  · lists and loads real packs');
+const packs = listPacks();
+ok('listPacks finds the slime pack', packs.includes('slime'));
+ok('listPacks finds the second (bean) pack — format is reusable', packs.includes('bean'));
+
+const slimePack = loadPack('slime');
+ok('loadPack(slime) → name slime', slimePack.name === 'slime');
+ok('loadPack(slime) resolves the sheet path', /sheet\.png$/.test(slimePack.sheetPath || ''));
+ok('loadPack(slime) manifest validates', validateManifest(slimePack.manifest).length === 0);
+
+const beanPack = loadPack('bean');
+ok('loadPack(bean) → name bean', beanPack.name === 'bean');
+ok('loadPack(bean) is a sheet-less stub (sheetPath null)', beanPack.sheetPath === null);
+ok('loadPack(bean) validates against the same schema', validateManifest(beanPack.manifest).length === 0);
+
+console.log('  · resolvePetName honours ANIMAYTE_PET');
+ok('default pet is slime', resolvePetName({}) === 'slime');
+ok('env override wins', resolvePetName({ ANIMAYTE_PET: 'bean' }) === 'bean');
+
+console.log('  · rejects missing + malformed packs with clear errors');
+ok('unknown pack throws "not found"', (() => { try { loadPack('ghostpet'); return false; } catch (e) { return /not found/.test(e.message); } })());
+{
+  const sandbox = mkdtempSync(join(tmpdir(), 'animayte-packs-'));
+  // a) invalid JSON
+  const dJson = join(sandbox, 'badjson'); mkdirSync(dJson); writeFileSync(join(dJson, 'pet.json'), '{ not json');
+  ok('invalid JSON → "invalid JSON" error', (() => { try { loadPack(dJson); return false; } catch (e) { return /invalid JSON/.test(e.message); } })());
+  // b) schema-invalid manifest
+  const dBad = join(sandbox, 'badschema'); mkdirSync(dBad); writeFileSync(join(dBad, 'pet.json'), JSON.stringify({ format: 'animayte-pet/1', name: 'x' }));
+  ok('schema-invalid → assertManifest message', (() => { try { loadPack(dBad); return false; } catch (e) { return /Invalid pet pack/.test(e.message); } })());
+  // c) declares a sheet that is missing
+  const dSheet = join(sandbox, 'nosheet'); mkdirSync(dSheet);
+  writeFileSync(join(dSheet, 'pet.json'), JSON.stringify({ ...buildSlimeManifest(), sheet: 'ghost.png' }));
+  ok('declared-but-missing sheet → clear error', (() => { try { loadPack(dSheet); return false; } catch (e) { return /missing/.test(e.message); } })());
+}
 
 // ───────────────────────────────────────────────────────────────────────────
 const total = pass + fail;

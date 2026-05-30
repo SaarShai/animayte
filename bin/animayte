@@ -10,6 +10,7 @@
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PORT="${ANIMAYTE_PORT:-4321}"
+PET="${ANIMAYTE_PET:-slime}"            # which pet pack to load (pets/<PET>/) — default slime
 DAEMON="$ROOT/animayte.mjs"
 PET_SWIFT="$ROOT/desktop/AnimaytePet.swift"
 PET_BIN="$ROOT/desktop/.build/AnimaytePet"
@@ -25,7 +26,7 @@ pet_up() { pgrep -f "AnimaytePet" >/dev/null 2>&1 || pgrep -f "animayte_pet.py" 
 
 start_daemon() {
   if [ -n "$NODE" ] && ! daemon_up; then
-    ANIMAYTE_PORT="$PORT" nohup "$NODE" "$DAEMON" >"$LOGDIR/animayte_daemon.log" 2>&1 &
+    ANIMAYTE_PORT="$PORT" ANIMAYTE_PET="$PET" nohup "$NODE" "$DAEMON" >"$LOGDIR/animayte_daemon.log" 2>&1 &
     sleep 0.6
   fi
 }
@@ -44,12 +45,12 @@ build_swift() {                                   # returns 0 if a runnable nati
 launch_pet() {
   if pet_up; then echo "🐣 animayte is already floating on your screen."; return 0; fi
   if build_swift; then
-    ANIMAYTE_ASSETS="$ROOT/assets" ANIMAYTE_PORT="$PORT" nohup "$PET_BIN" >"$LOGDIR/animayte_pet.log" 2>&1 &
+    ANIMAYTE_ASSETS="$ROOT/assets" ANIMAYTE_PORT="$PORT" ANIMAYTE_PET="$PET" nohup "$PET_BIN" >"$LOGDIR/animayte_pet.log" 2>&1 &
     sleep 0.5
     pet_up && { echo "🐣 animayte is floating on your screen (native) — drag it anywhere · right-click to dismiss."; return 0; }
   fi
   if [ -n "$PY" ]; then
-    ANIMAYTE_PORT="$PORT" nohup "$PY" "$PET_PY" >"$LOGDIR/animayte_pet.log" 2>&1 &
+    ANIMAYTE_PORT="$PORT" ANIMAYTE_PET="$PET" nohup "$PY" "$PET_PY" >"$LOGDIR/animayte_pet.log" 2>&1 &
     sleep 0.4
     pet_up && { echo "🐣 animayte is floating on your screen — drag it · Esc or right-click to dismiss."; return 0; }
   fi

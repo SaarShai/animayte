@@ -10,7 +10,6 @@
 import http from 'node:http';
 
 const PORT = process.env.ANIMAYTE_PORT ? Number(process.env.ANIMAYTE_PORT) : 4321;
-const MOOD_EMOJI = { idle: '🙂', listening: '👂', working: '⚙️', happy: '😄', excited: '🤩', oops: '😬', bashful: '☺️', tired: '😪', sleepy: '😴' };
 
 let s = '';
 process.stdin.on('data', (d) => (s += d));

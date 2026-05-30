@@ -28,7 +28,7 @@ const state = {
   model: null, ctxPct: 0, ctxTokens: 0, ctxWindow: 0,
   costUsd: 0, linesAdded: 0, linesRemoved: 0,
   rateLimitPct: 0, effort: null, thinking: false,
-  lastTool: null, reliefSeq: 0, updated: Date.now(),
+  reliefSeq: 0, updated: Date.now(),
 };
 let birdSeq = 1;
 const clients = new Set();
@@ -165,7 +165,6 @@ async function handleEvent(ev) {
     case 'UserPromptSubmit': hatch(); setMood('thinking'); say('👀 reading your request…'); break;
     case 'PreToolUse': {
       const tool = ev.tool_name || ev.toolName || '';
-      state.lastTool = tool;
       if (tool === 'Task' || tool === 'Agent') {
         const d = (ev.tool_input && (ev.tool_input.description || ev.tool_input.subagent_type)) || 'helper';
         addBird(String(d).slice(0, 22));

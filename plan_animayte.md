@@ -406,10 +406,10 @@ on his screen, sound cuteness, personality "vibes." Queue these in §11 "For Saa
 **Phase 0:** ☑ A1 ☑ A2 ☑ A6  ← Phase 0 COMPLETE
 **Phase 1:** ☑ A3 ☑ A4 ☑ B1 ☑ C1  ← Phase 1 COMPLETE
 **Phase 2:** ☑ A5 ☑ B2 ☑ B3 ☑ B4 ☑ B5  ← Phase 2 COMPLETE
-**Phase 3:** ☐ B6 ☐ C6 ☐ C3 ☐ C4 ☐ C2
+**Phase 3:** ☑ B6 ☑ C6 ☐ C3 ☐ C4 ☐ C2
 **Phase 4:** ☐ C5 ☐ C7 ☐ C8
 
-`npm test` last status: **PASS — 439 checks** (223 engine + 188 detection/consistency + 28 e2e) · Branch: `feat/anim-engine`
+`npm test` last status: **PASS — 468 checks** (241 engine + 188 detection/consistency + 39 e2e) · Branch: `feat/anim-engine`
 Validated live via Preview MCP: thinking/excited/tired (indexed swap)/sleepy; tool gags reading(glasses)/asking(?+head-tilt)/running(dust) — all render correctly; SSE round-trip works; 0 console errors.
 
 ---
@@ -499,6 +499,17 @@ Validated live via Preview MCP: thinking/excited/tired (indexed swap)/sleepy; to
   clips LOOP until interrupted; the runtime's `reactByName()` plays them (wired to an SSE `react` cmd
   the daemon will emit in C6). Validated live: glasses+look-down (reading), `?`+head-tilt (asking, rot
   track), dust+run-in-place (running). Priority arbitration confirmed (Running dropped under Asking). (B4)
+- **C6 daemon vocab** = `lib/anim/events.mjs#classifyTool` (shared with the simulator so it can't
+  drift) maps `PreToolUse` tool_name → an event (Bash sub-classified by command: test/install/git/
+  run). Daemon exposes `state.activeTool` (read/search/edit/run/test/install/git), broadcasts SSE
+  `{cmd:'react',name}` for the rich runtime AND keeps `mood:'thinking'` for thin renderers; PostToolUse
+  broadcasts `endReact` → runtime `toIdle()` (state-machine `release()`). Backwards-compatible. (C6)
+- **B6 end-to-end** validated LIVE: real `Grep` hook POSTed to the daemon → classify → SSE → magnifier
+  searching gag rendered. Plus `tools/simulate.mjs` (§9.5): replays canned sessions (happy / bug-hunt /
+  sub-agents) through the shared classifier + state machine → a readable, asserted state timeline
+  (read→glasses, edit→pencil, test→nervous, commit→check, stop→bounce; bug-hunt shows a sad beat then
+  recovers; never stuck mid-reaction). Reaction selection is deterministic (event→reaction); personality
+  re-weighting is C3. (B6)
 
 **For Saar to review / decide (non-blocking — I proceeded with a default):**
 - **Cursor-glance flair has NO real signal** (honest-mirror concern raised in `docs/animation-library.md`

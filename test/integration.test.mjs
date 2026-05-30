@@ -137,6 +137,31 @@ try {
   s = await event({ hook_event_name: 'Stop', transcript_path: tNeg });
   check('"zero errors" → happy (not sad)', s.mood, 'happy');
 
+  // 10. C6 — PreToolUse tool → state.activeTool category (the daemon also broadcasts a
+  // rich 'react' for the gag; thin renderers still get mood='thinking').
+  s = await event({ hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: { file_path: '/x' } });
+  check('Read → activeTool=read', s.activeTool, 'read');
+  check('Read still drives mood=thinking (legacy renderers)', s.mood, 'thinking');
+  s = await event({ hook_event_name: 'PreToolUse', tool_name: 'Grep', tool_input: { pattern: 'x' } });
+  check('Grep → activeTool=search', s.activeTool, 'search');
+  s = await event({ hook_event_name: 'PreToolUse', tool_name: 'Edit', tool_input: {} });
+  check('Edit → activeTool=edit', s.activeTool, 'edit');
+  s = await event({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'npm test' } });
+  check('Bash "npm test" → activeTool=test', s.activeTool, 'test');
+  s = await event({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git commit -m wip' } });
+  check('Bash "git commit" → activeTool=git', s.activeTool, 'git');
+  s = await event({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'pip install requests' } });
+  check('Bash "pip install" → activeTool=install', s.activeTool, 'install');
+  s = await event({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'ls -la && echo hi' } });
+  check('Bash generic → activeTool=run', s.activeTool, 'run');
+  s = await event({ hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_response: 'ok' });
+  check('PostToolUse clears activeTool', s.activeTool, null);
+  // Task still spawns a bird and is NOT a tool gag
+  await event({ hook_event_name: 'SessionStart' });
+  s = await event({ hook_event_name: 'PreToolUse', tool_name: 'Task', tool_input: { description: 'helper' } });
+  check('Task → no tool gag (activeTool stays null)', s.activeTool, null);
+  ok('Task spawned a bird', s.birds.length === 1, `(got ${s.birds.length})`);
+
 } catch (e) {
   fail++; fails.push('  ✗ threw: ' + e.message + '\n' + (e.stack || ''));
 } finally {

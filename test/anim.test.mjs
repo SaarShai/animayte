@@ -19,6 +19,8 @@ import { composite, swapPalette, buildSwap, computeOutline, alphaMask } from '..
 import { createStateMachine, clipDuration, frameAt, FrameResult } from '../lib/anim/state-machine.mjs';
 import { contactSheet, clipFilmstrip, squashStrip } from '../tools/preview.mjs';
 import { listPacks, loadPack, resolvePetName, DEFAULT_PETS_DIR } from '../lib/anim/loader.mjs';
+import { classifyTool } from '../lib/anim/events.mjs';
+import { replaySession, SESSIONS, summarize } from '../tools/simulate.mjs';
 import { EXPRESSIONS } from '../lib/expressions.mjs';
 import { readFileSync, writeFileSync, mkdtempSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -442,6 +444,37 @@ ok('unknown pack throws "not found"', (() => { try { loadPack('ghostpet'); retur
   writeFileSync(join(dSheet, 'pet.json'), JSON.stringify({ ...buildSlimeManifest(), sheet: 'ghost.png' }));
   ok('declared-but-missing sheet → clear error', (() => { try { loadPack(dSheet); return false; } catch (e) { return /missing/.test(e.message); } })());
 }
+
+// ───────────────────────────────────────────────────────────────────────────
+console.log('\nEngine — EVENT VOCAB + SESSION SIM (C6 / B6)');
+
+console.log('  · classifyTool maps tools → animation events');
+ok('Read → Reading/read', (() => { const r = classifyTool('Read', {}); return r.event === 'Reading' && r.category === 'read'; })());
+ok('Grep → Searching/search', classifyTool('Grep', {}).event === 'Searching');
+ok('Edit/Write → Writing/edit', classifyTool('Edit', {}).event === 'Writing' && classifyTool('Write', {}).category === 'edit');
+ok('Bash "npm test" → Testing', classifyTool('Bash', { command: 'npm test' }).event === 'Testing');
+ok('Bash "pip install x" → Installing', classifyTool('Bash', { command: 'pip install x' }).event === 'Installing');
+ok('Bash "git commit" → Committing', classifyTool('Bash', { command: 'git commit -m x' }).event === 'Committing');
+ok('Bash "ls" → Running', classifyTool('Bash', { command: 'ls -la' }).event === 'Running');
+ok('unknown tool → null (generic thinking)', classifyTool('MysteryTool', {}) === null);
+ok('Task is not a tool gag', classifyTool('Task', {}) === null);
+ok('"npm test" is Testing, not Installing (order)', classifyTool('Bash', { command: 'npm test' }).category === 'test');
+
+console.log('  · replayed sessions look right end-to-end (no stuck states)');
+const happy = replaySession(SESSIONS.happy);
+const sH = summarize(happy);
+ok('happy session ends idle (never stuck mid-reaction)', sH.endsIdle === true);
+ok('happy session fires ≥4 tool reactions', sH.reactions >= 4);
+ok('Read step → reading gag + glasses', (() => { const e = happy.find((x) => x.event === 'PreToolUse(Read)'); return e && e.clip === 'reading' && e.prop === 'glasses'; })());
+ok('git commit step → committing gag + check', (() => { const e = happy.find((x) => x.clip === 'committing'); return e && e.prop === 'check'; })());
+
+const bug = replaySession(SESSIONS.bughunt);
+ok('bug-hunt recovers (ends idle, not stuck red)', summarize(bug).endsIdle === true);
+ok('failed tests show a sad beat then recover (recovery, not punishment)', bug.some((e) => e.expression === 'sad') && bug[bug.length - 1].kind !== 'reaction');
+
+const sub = replaySession(SESSIONS.subagents);
+ok('sub-agents peak at 2 birds', Math.max(...sub.map((e) => e.birds)) === 2);
+ok('sub-agents all fly off (ends 0 birds)', sub[sub.length - 1].birds === 0);
 
 // ───────────────────────────────────────────────────────────────────────────
 const total = pass + fail;

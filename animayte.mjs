@@ -17,6 +17,7 @@ import { readFile, open, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, extname } from 'node:path';
 import { detectMood } from './lib/sentiment.mjs';
+import { classifyTool } from './lib/anim/events.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.ANIMAYTE_PORT ? Number(process.env.ANIMAYTE_PORT) : 4321;
@@ -25,6 +26,7 @@ const PORT = process.env.ANIMAYTE_PORT ? Number(process.env.ANIMAYTE_PORT) : 432
 const state = {
   phase: 'alive', mood: 'idle', fullness: 0, birds: [] /* {id,label} */,
   pet: process.env.ANIMAYTE_PET || 'slime',   // which pet pack the renderers should load (pets/<pet>/)
+  activeTool: null,                            // current tool category (read/search/edit/run/test/install/git) — C6
   // rich signals (see docs/session-signals.md):
   model: null, ctxPct: 0, ctxTokens: 0, ctxWindow: 0,
   costUsd: 0, linesAdded: 0, linesRemoved: 0,
@@ -170,10 +172,17 @@ async function handleEvent(ev) {
         const d = (ev.tool_input && (ev.tool_input.description || ev.tool_input.subagent_type)) || 'helper';
         addBird(String(d).slice(0, 22));
         say('🐦 spawned a helper: ' + String(d).slice(0, 22));
-      } else setMood('thinking');
+      } else {
+        const gag = classifyTool(tool, ev.tool_input || ev.toolInput);
+        state.activeTool = gag ? gag.category : null;
+        setMood('thinking');                              // legacy renderers (mood-only) still react
+        if (gag) broadcast({ cmd: 'react', name: gag.event });  // rich runtime plays the tool gag
+      }
       break;
     }
     case 'PostToolUse':
+      state.activeTool = null;
+      broadcast({ cmd: 'endReact' });                     // tool finished → rich runtime returns to idle
       // a tool error = BAD NEWS (😟 sad), not the agent's own fault (😅 oops, via sentiment)
       if (isErrorResponse(ev)) { setMood('sad', 2200); say('😟 hit a snag, recovering…'); }
       else if (!applySentiment(tail && tail.recentTexts)) setMood('thinking');

@@ -1,0 +1,9 @@
+{
+  "name": "grumpy",
+  "label": "Grumpy",
+  "blurb": "Low-energy and dry — rarely fidgets, dozes off quickly, small reactions, leans not hops.",
+  "secondaryEveryMsScale": 1.5,
+  "boredAfterMsScale": 0.5,
+  "secondaryWeights": { "sway": 4, "stretch": 1, "bounce": 0.4 },
+  "reactionIntensity": 0.82
+}

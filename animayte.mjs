@@ -26,6 +26,7 @@ const PORT = process.env.ANIMAYTE_PORT ? Number(process.env.ANIMAYTE_PORT) : 432
 const state = {
   phase: 'alive', mood: 'idle', fullness: 0, birds: [] /* {id,label} */,
   pet: process.env.ANIMAYTE_PET || 'slime',   // which pet pack the renderers should load (pets/<pet>/)
+  personality: process.env.ANIMAYTE_PERSONALITY || 'adaptive',  // re-weights idle/reaction selection (C3)
   activeTool: null,                            // current tool category (read/search/edit/run/test/install/git) — C6
   // rich signals (see docs/session-signals.md):
   model: null, ctxPct: 0, ctxTokens: 0, ctxWindow: 0,

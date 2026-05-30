@@ -21,6 +21,7 @@ import { contactSheet, clipFilmstrip, squashStrip } from '../tools/preview.mjs';
 import { listPacks, loadPack, resolvePetName, DEFAULT_PETS_DIR } from '../lib/anim/loader.mjs';
 import { classifyTool } from '../lib/anim/events.mjs';
 import { replaySession, SESSIONS, summarize } from '../tools/simulate.mjs';
+import { loadPersonality, resolvePersonality, weightFor, DEFAULT_PERSONALITY } from '../lib/anim/personality.mjs';
 import { EXPRESSIONS } from '../lib/expressions.mjs';
 import { readFileSync, writeFileSync, mkdtempSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -475,6 +476,36 @@ ok('failed tests show a sad beat then recover (recovery, not punishment)', bug.s
 const sub = replaySession(SESSIONS.subagents);
 ok('sub-agents peak at 2 birds', Math.max(...sub.map((e) => e.birds)) === 2);
 ok('sub-agents all fly off (ends 0 birds)', sub[sub.length - 1].birds === 0);
+
+// ───────────────────────────────────────────────────────────────────────────
+console.log('\nEngine — PERSONALITY (C3, data re-weights behaviour)');
+
+console.log('  · loader + resolver');
+ok('loadPersonality(adaptive) is balanced', (() => { const p = loadPersonality('adaptive'); return p.secondaryEveryMsScale === 1 && p.reactionIntensity === 1; })());
+ok('loadPersonality(chipper) bounces more + fidgets faster', (() => { const p = loadPersonality('chipper'); return p.secondaryWeights.bounce > 1 && p.secondaryEveryMsScale < 1; })());
+ok('loadPersonality(grumpy) dozes sooner + small reactions', (() => { const p = loadPersonality('grumpy'); return p.boredAfterMsScale < 1 && p.reactionIntensity < 1; })());
+ok('unknown personality → Adaptive default', loadPersonality('ghost').name === 'adaptive');
+ok('resolvePersonality fills defaults for partial input', resolvePersonality({ name: 'x' }).reactionIntensity === 1);
+ok('resolvePersonality rejects junk → defaults', resolvePersonality(null).name === DEFAULT_PERSONALITY.name);
+ok('weightFor defaults missing clip to 1', weightFor(loadPersonality('chipper'), 'sway') === 1 && weightFor(loadPersonality('chipper'), 'bounce') === 4);
+
+console.log('  · same idle stream, 3 personalities → measurably different behaviour');
+function idleRun(personality, seed) {
+  const m = JSON.parse(JSON.stringify(buildSlimeManifest())); m.idle.boredAfterMs = 1e9; // isolate secondaries from bored
+  const sm = createStateMachine(m, { rng: mulberry32(seed), secondaryEveryMs: 1000, personality });
+  for (let i = 0; i < 700; i++) sm.tick(50);   // 35s
+  const secs = sm.log.filter((e) => e.kind === 'secondary').map((e) => e.clip);
+  const frac = (c) => secs.length ? secs.filter((x) => x === c).length / secs.length : 0;
+  return { count: secs.length, bounceFrac: frac('bounce'), swayFrac: frac('sway'), secs };
+}
+const chip = idleRun(loadPersonality('chipper'), 42);
+const grump = idleRun(loadPersonality('grumpy'), 42);
+const adapt = idleRun(loadPersonality('adaptive'), 42);
+ok('chipper fidgets MORE often than grumpy (faster interval)', chip.count > grump.count);
+ok('chipper bounces far more than grumpy (weights honored)', chip.bounceFrac > grump.bounceFrac + 0.2);
+ok('grumpy leans (sway) more than it bounces', grump.swayFrac > grump.bounceFrac);
+ok('adaptive is balanced between chipper and grumpy bounce-rate', adapt.bounceFrac <= chip.bounceFrac && adapt.bounceFrac >= grump.bounceFrac);
+ok('every pick still respects anti-repetition under weighting', (() => { for (const r of [chip, grump, adapt]) for (let i = 1; i < r.secs.length; i++) if (r.secs[i] === r.secs[i - 1]) return false; return true; })());
 
 // ───────────────────────────────────────────────────────────────────────────
 const total = pass + fail;

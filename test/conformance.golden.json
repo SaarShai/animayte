@@ -1,0 +1,866 @@
+{
+  "format": "animayte-conformance/1",
+  "cell": 64,
+  "expressions": [
+    "neutral",
+    "thinking",
+    "happy",
+    "excited",
+    "oops",
+    "embarrassed",
+    "sad",
+    "sleepy"
+  ],
+  "clips": {
+    "idle": [
+      {
+        "t": 0,
+        "cell": 0,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.25,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1.015,
+        "tx": 0,
+        "ty": -0.5,
+        "rot": 0
+      },
+      {
+        "t": 0.5,
+        "cell": 2,
+        "sx": 1,
+        "sy": 1.03,
+        "tx": 0,
+        "ty": -1,
+        "rot": 0
+      },
+      {
+        "t": 0.75,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1.015,
+        "tx": 0,
+        "ty": -0.5,
+        "rot": 0
+      },
+      {
+        "t": 0.99,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": -0.001,
+        "rot": 0
+      }
+    ],
+    "blink": [
+      {
+        "t": 0,
+        "cell": 3,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.25,
+        "cell": 3,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.5,
+        "cell": 3,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.75,
+        "cell": 3,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.99,
+        "cell": 3,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      }
+    ],
+    "react": [
+      {
+        "t": 0,
+        "cell": 0,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.25,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1.0531,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.5,
+        "cell": 2,
+        "sx": 1,
+        "sy": 1.16,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.75,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1.0375,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.99,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1.0017,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      }
+    ],
+    "sway": [
+      {
+        "t": 0,
+        "cell": 0,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.25,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": -2.799,
+        "ty": 0,
+        "rot": -0.0467
+      },
+      {
+        "t": 0.5,
+        "cell": 2,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.75,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": 2.799,
+        "ty": 0,
+        "rot": 0.0467
+      },
+      {
+        "t": 0.99,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0.0082,
+        "ty": 0,
+        "rot": 0.0001
+      }
+    ],
+    "stretch": [
+      {
+        "t": 0,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.25,
+        "cell": 2,
+        "sx": 1,
+        "sy": 1.0963,
+        "tx": 0,
+        "ty": -1.6049,
+        "rot": 0
+      },
+      {
+        "t": 0.5,
+        "cell": 2,
+        "sx": 1,
+        "sy": 1.1176,
+        "tx": 0,
+        "ty": -1.9595,
+        "rot": 0
+      },
+      {
+        "t": 0.75,
+        "cell": 2,
+        "sx": 1,
+        "sy": 1.0515,
+        "tx": 0,
+        "ty": -0.8577,
+        "rot": 0
+      },
+      {
+        "t": 0.99,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1.0001,
+        "tx": 0,
+        "ty": -0.0016,
+        "rot": 0
+      }
+    ],
+    "bounce": [
+      {
+        "t": 0,
+        "cell": 0,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.25,
+        "cell": 2,
+        "sx": 1,
+        "sy": 0.955,
+        "tx": 0,
+        "ty": -2.1389,
+        "rot": 0
+      },
+      {
+        "t": 0.5,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1.08,
+        "tx": 0,
+        "ty": -7,
+        "rot": 0
+      },
+      {
+        "t": 0.75,
+        "cell": 0,
+        "sx": 1,
+        "sy": 1.0188,
+        "tx": 0,
+        "ty": -1.6406,
+        "rot": 0
+      },
+      {
+        "t": 0.99,
+        "cell": 0,
+        "sx": 1,
+        "sy": 1.0009,
+        "tx": 0,
+        "ty": -0.0751,
+        "rot": 0
+      }
+    ],
+    "doze": [
+      {
+        "t": 0,
+        "cell": 3,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.25,
+        "cell": 3,
+        "sx": 1,
+        "sy": 0.985,
+        "tx": 0,
+        "ty": 0.5,
+        "rot": 0
+      },
+      {
+        "t": 0.5,
+        "cell": 3,
+        "sx": 1,
+        "sy": 0.97,
+        "tx": 0,
+        "ty": 1,
+        "rot": 0
+      },
+      {
+        "t": 0.75,
+        "cell": 3,
+        "sx": 1,
+        "sy": 0.985,
+        "tx": 0,
+        "ty": 0.5,
+        "rot": 0
+      },
+      {
+        "t": 0.99,
+        "cell": 3,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0.001,
+        "rot": 0
+      }
+    ],
+    "reading": [
+      {
+        "t": 0,
+        "cell": 0,
+        "sx": 1,
+        "sy": 1,
+        "tx": -1,
+        "ty": 2,
+        "rot": 0
+      },
+      {
+        "t": 0.25,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 2.5,
+        "rot": 0
+      },
+      {
+        "t": 0.5,
+        "cell": 2,
+        "sx": 1,
+        "sy": 1,
+        "tx": 1,
+        "ty": 3,
+        "rot": 0
+      },
+      {
+        "t": 0.75,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 2.5,
+        "rot": 0
+      },
+      {
+        "t": 0.99,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": -0.998,
+        "ty": 2.001,
+        "rot": 0
+      }
+    ],
+    "searching": [
+      {
+        "t": 0,
+        "cell": 0,
+        "sx": 1,
+        "sy": 1,
+        "tx": -3,
+        "ty": 0,
+        "rot": -0.05
+      },
+      {
+        "t": 0.25,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.5,
+        "cell": 2,
+        "sx": 1,
+        "sy": 1,
+        "tx": 3,
+        "ty": 0,
+        "rot": 0.05
+      },
+      {
+        "t": 0.75,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.99,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": -2.9941,
+        "ty": 0,
+        "rot": -0.0499
+      }
+    ],
+    "writing": [
+      {
+        "t": 0,
+        "cell": 0,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.25,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 1.6,
+        "rot": 0
+      },
+      {
+        "t": 0.5,
+        "cell": 2,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.75,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 1.6,
+        "rot": 0
+      },
+      {
+        "t": 0.99,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0.0063,
+        "rot": 0
+      }
+    ],
+    "running": [
+      {
+        "t": 0,
+        "cell": 0,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.25,
+        "cell": 2,
+        "sx": 1,
+        "sy": 1,
+        "tx": -1,
+        "ty": -3,
+        "rot": 0
+      },
+      {
+        "t": 0.5,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.75,
+        "cell": 0,
+        "sx": 1,
+        "sy": 1,
+        "tx": 1,
+        "ty": -3,
+        "rot": 0
+      },
+      {
+        "t": 0.99,
+        "cell": 0,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0.0784,
+        "ty": -0.2352,
+        "rot": 0
+      }
+    ],
+    "installing": [
+      {
+        "t": 0,
+        "cell": 0,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.25,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0.5,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.5,
+        "cell": 2,
+        "sx": 1,
+        "sy": 1,
+        "tx": 1,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.75,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0.5,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.99,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0.001,
+        "ty": 0,
+        "rot": 0
+      }
+    ],
+    "asking": [
+      {
+        "t": 0,
+        "cell": 0,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.25,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0.8594,
+        "ty": 0,
+        "rot": 0.0945
+      },
+      {
+        "t": 0.5,
+        "cell": 2,
+        "sx": 1,
+        "sy": 1,
+        "tx": 1,
+        "ty": 0,
+        "rot": 0.11
+      },
+      {
+        "t": 0.75,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": 1,
+        "ty": 0,
+        "rot": 0.11
+      },
+      {
+        "t": 0.99,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": 1,
+        "ty": 0,
+        "rot": 0.11
+      }
+    ],
+    "waiting": [
+      {
+        "t": 0,
+        "cell": 0,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.25,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": -0.5,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.5,
+        "cell": 2,
+        "sx": 1,
+        "sy": 1,
+        "tx": -1,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.75,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": -0.5,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.99,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": -0.001,
+        "ty": 0,
+        "rot": 0
+      }
+    ],
+    "testing": [
+      {
+        "t": 0,
+        "cell": 0,
+        "sx": 1,
+        "sy": 1,
+        "tx": -1,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.25,
+        "cell": 0,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.5,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": 1,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.75,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.99,
+        "cell": 1,
+        "sx": 1,
+        "sy": 1,
+        "tx": -0.998,
+        "ty": 0,
+        "rot": 0
+      }
+    ],
+    "committing": [
+      {
+        "t": 0,
+        "cell": 0,
+        "sx": 1,
+        "sy": 1,
+        "tx": 0,
+        "ty": 0,
+        "rot": 0
+      },
+      {
+        "t": 0.25,
+        "cell": 0,
+        "sx": 1,
+        "sy": 0.8444,
+        "tx": 0,
+        "ty": 2.9167,
+        "rot": 0
+      },
+      {
+        "t": 0.5,
+        "cell": 2,
+        "sx": 1,
+        "sy": 0.9388,
+        "tx": 0,
+        "ty": 1.148,
+        "rot": 0
+      },
+      {
+        "t": 0.75,
+        "cell": 1,
+        "sx": 1,
+        "sy": 0.9715,
+        "tx": 0,
+        "ty": 0.5348,
+        "rot": 0
+      },
+      {
+        "t": 0.99,
+        "cell": 1,
+        "sx": 1,
+        "sy": 0.9987,
+        "tx": 0,
+        "ty": 0.0248,
+        "rot": 0
+      }
+    ]
+  },
+  "timeline": [
+    {
+      "event": "SessionStart",
+      "kind": "idle",
+      "clip": "idle",
+      "expression": "happy",
+      "prop": null,
+      "birds": 0
+    },
+    {
+      "event": "UserPromptSubmit",
+      "kind": "idle",
+      "clip": "idle",
+      "expression": "thinking",
+      "prop": null,
+      "birds": 0
+    },
+    {
+      "event": "PreToolUse(Read)",
+      "kind": "reaction",
+      "clip": "reading",
+      "expression": "thinking",
+      "prop": "glasses",
+      "birds": 0
+    },
+    {
+      "event": "PostToolUse",
+      "kind": "idle",
+      "clip": "idle",
+      "expression": "thinking",
+      "prop": null,
+      "birds": 0
+    },
+    {
+      "event": "PreToolUse(Edit)",
+      "kind": "reaction",
+      "clip": "writing",
+      "expression": "thinking",
+      "prop": "pencil",
+      "birds": 0
+    },
+    {
+      "event": "PostToolUse",
+      "kind": "idle",
+      "clip": "idle",
+      "expression": "thinking",
+      "prop": null,
+      "birds": 0
+    },
+    {
+      "event": "PreToolUse(Bash)",
+      "kind": "reaction",
+      "clip": "testing",
+      "expression": "oops",
+      "prop": "ellipsis",
+      "birds": 0
+    },
+    {
+      "event": "PostToolUse",
+      "kind": "idle",
+      "clip": "idle",
+      "expression": "thinking",
+      "prop": null,
+      "birds": 0
+    },
+    {
+      "event": "PreToolUse(Bash)",
+      "kind": "reaction",
+      "clip": "committing",
+      "expression": "happy",
+      "prop": "check",
+      "birds": 0
+    },
+    {
+      "event": "PostToolUse",
+      "kind": "idle",
+      "clip": "idle",
+      "expression": "thinking",
+      "prop": null,
+      "birds": 0
+    },
+    {
+      "event": "Stop",
+      "kind": "reaction",
+      "clip": "react",
+      "expression": "happy",
+      "prop": null,
+      "birds": 0
+    },
+    {
+      "event": "(quiet)",
+      "kind": "idle",
+      "clip": "idle",
+      "expression": "thinking",
+      "prop": null,
+      "birds": 0
+    }
+  ]
+}

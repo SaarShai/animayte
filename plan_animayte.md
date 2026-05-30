@@ -406,10 +406,10 @@ on his screen, sound cuteness, personality "vibes." Queue these in §11 "For Saa
 **Phase 0:** ☑ A1 ☑ A2 ☑ A6  ← Phase 0 COMPLETE
 **Phase 1:** ☑ A3 ☑ A4 ☑ B1 ☑ C1  ← Phase 1 COMPLETE
 **Phase 2:** ☑ A5 ☑ B2 ☑ B3 ☑ B4 ☑ B5  ← Phase 2 COMPLETE
-**Phase 3:** ☑ B6 ☑ C6 ☐ C3 ☐ C4 ☐ C2
+**Phase 3:** ☑ B6 ☑ C6 ☑ C3 ☐ C4 ☑ C2
 **Phase 4:** ☐ C5 ☐ C7 ☐ C8
 
-`npm test` last status: **PASS — 468 checks** (241 engine + 188 detection/consistency + 39 e2e) · Branch: `feat/anim-engine`
+`npm test` last status: **PASS — 592 checks** (253 engine + 112 conformance + 188 detection/consistency + 39 e2e) · Branch: `feat/anim-engine`
 Validated live via Preview MCP: thinking/excited/tired (indexed swap)/sleepy; tool gags reading(glasses)/asking(?+head-tilt)/running(dust) — all render correctly; SSE round-trip works; 0 console errors.
 
 ---
@@ -510,6 +510,20 @@ Validated live via Preview MCP: thinking/excited/tired (indexed swap)/sleepy; to
   (read→glasses, edit→pencil, test→nervous, commit→check, stop→bounce; bug-hunt shows a sad beat then
   recovers; never stuck mid-reaction). Reaction selection is deterministic (event→reaction); personality
   re-weighting is C3. (B6)
+- **C2 conformance golden** (`test/conformance.mjs` + `conformance.golden.json`, wired into `npm test`):
+  pins, for canonical (clip,t) samples, the exact `{cell, transform}` AND a replayed session timeline.
+  Any engine/art/easing change that drifts fails; regen with `--update`. `docs/renderer-runtime.md`
+  (290 lines) documents the `(petState,t)→draw list` contract + an HONEST per-renderer subset table.
+  **Key finding (from the doc sweep):** Swift derives its column from `Int(t*5)%FRAMES` (ignores
+  `frame.cell`) and can hit the blink col — so the golden pins the WEB tier; Swift/Python are documented
+  ◐/✗ partial tiers (mood row + birds; Swift also does its own fullness-swell + relief steam). (C2)
+- **C3 personality** = `personalities/{adaptive,chipper,grumpy}.json` + `lib/anim/personality.mjs`
+  (loader/resolver, Node-side). The state machine takes a RESOLVED personality object (kept browser-safe
+  — no node: import) and uses it to scale idle interval + bored-timer and to WEIGHT secondary selection;
+  the runtime scales reaction intensity by it. Daemon `state.personality` (env `ANIMAYTE_PERSONALITY`,
+  threaded through `bin/animayte`); the page fetches the JSON. Tested: same idle stream under 3
+  personalities → measurably different distributions (chipper bounces+fidgets more; grumpy leans+dozes
+  sooner), anti-repetition preserved. Default = Adaptive. (C3)
 
 **For Saar to review / decide (non-blocking — I proceeded with a default):**
 - **Cursor-glance flair has NO real signal** (honest-mirror concern raised in `docs/animation-library.md`

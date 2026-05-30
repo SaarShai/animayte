@@ -1,0 +1,9 @@
+{
+  "name": "adaptive",
+  "label": "Adaptive",
+  "blurb": "Calm while working, lively at milestones. The balanced default.",
+  "secondaryEveryMsScale": 1.0,
+  "boredAfterMsScale": 1.0,
+  "secondaryWeights": { "sway": 1, "stretch": 1, "bounce": 1 },
+  "reactionIntensity": 1.0
+}

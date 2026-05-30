@@ -1,0 +1,9 @@
+{
+  "name": "chipper",
+  "label": "Chipper",
+  "blurb": "Bouncy and eager — fidgets often, takes ages to get bored, big reactions.",
+  "secondaryEveryMsScale": 0.65,
+  "boredAfterMsScale": 1.8,
+  "secondaryWeights": { "sway": 1, "stretch": 1, "bounce": 4 },
+  "reactionIntensity": 1.18
+}

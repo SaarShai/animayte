@@ -15,6 +15,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { EXPRESSIONS } from '../lib/expressions.mjs';
 import { Canvas, encodePNG } from '../lib/anim/png.mjs';
 import { buildSlimeManifest, validateManifest } from '../lib/anim/manifest.mjs';
+import { PROPS, PROP_CELL, drawProp } from './draw-props.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'assets');
@@ -207,6 +208,18 @@ function drawBird(C, ox, oy, up) {
 }
 function buildBird() { const C = Canvas(48, 24); drawBird(C, 0, 0, true); drawBird(C, 24, 0, false); writeFileSync(join(OUT, 'bird.png'), encodePNG(48, 24, C.d)); console.log('bird.png   48x24'); }
 
+// ---------- prop / emote overlay strip (§4.5) ----------
+function buildProps() {
+  const W = PROP_CELL * PROPS.length, H = PROP_CELL;
+  const C = Canvas(W, H);
+  PROPS.forEach((name, i) => drawProp(C, i * PROP_CELL, 0, name));
+  const png = encodePNG(W, H, C.d);
+  writeFileSync(join(OUT, 'props.png'), png);
+  const packDir = join(ROOT, 'pets', 'slime'); mkdirSync(packDir, { recursive: true });
+  writeFileSync(join(packDir, 'props.png'), png);
+  console.log(`props.png  ${W}x${H}  ${PROPS.length} props: ${PROPS.join(', ')}`);
+}
+
 // ---------- pet manifest (the data-driven pet-pack) ----------
 // Generated from the SAME EXPRESSIONS source of truth, so the baked spritesheet and
 // the manifest never disagree. Validated before writing — never emit a bad pack.
@@ -223,6 +236,6 @@ function buildManifest() {
 // run the build only when executed directly — importing drawSlime/CELL/etc. (the
 // preview tool does) must NOT write files as a side effect.
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
-  buildSlime(); buildBird(); buildManifest();
+  buildSlime(); buildBird(); buildProps(); buildManifest();
   console.log('done →', OUT);
 }

@@ -7,6 +7,8 @@
     1
   ],
   "sheet": "sheet.png",
+  "propSheet": "props.png",
+  "propCell": 24,
   "layers": [
     "shadow",
     "outline",
@@ -382,10 +384,580 @@
           }
         ]
       }
+    },
+    "reading": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 380,
+          "cell": 0
+        },
+        {
+          "dur": 380,
+          "cell": 1
+        },
+        {
+          "dur": 380,
+          "cell": 2
+        },
+        {
+          "dur": 380,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "ty": 2,
+            "tx": -1
+          },
+          {
+            "t": 0.5,
+            "ty": 3,
+            "tx": 1,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 1,
+            "ty": 2,
+            "tx": -1,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "searching": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 300,
+          "cell": 0
+        },
+        {
+          "dur": 300,
+          "cell": 1
+        },
+        {
+          "dur": 300,
+          "cell": 2
+        },
+        {
+          "dur": 300,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "tx": -3,
+            "rot": -0.05
+          },
+          {
+            "t": 0.5,
+            "tx": 3,
+            "rot": 0.05,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 1,
+            "tx": -3,
+            "rot": -0.05,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "writing": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 140,
+          "cell": 0
+        },
+        {
+          "dur": 140,
+          "cell": 1
+        },
+        {
+          "dur": 140,
+          "cell": 2
+        },
+        {
+          "dur": 140,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "ty": 0
+          },
+          {
+            "t": 0.25,
+            "ty": 1.6,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 0.5,
+            "ty": 0,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 0.75,
+            "ty": 1.6,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 1,
+            "ty": 0,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "running": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 90,
+          "cell": 0
+        },
+        {
+          "dur": 90,
+          "cell": 2
+        },
+        {
+          "dur": 90,
+          "cell": 1
+        },
+        {
+          "dur": 90,
+          "cell": 0
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "ty": 0,
+            "tx": 0
+          },
+          {
+            "t": 0.25,
+            "ty": -3,
+            "tx": -1,
+            "ease": "easeOutQuad"
+          },
+          {
+            "t": 0.5,
+            "ty": 0,
+            "tx": 0,
+            "ease": "easeInQuad"
+          },
+          {
+            "t": 0.75,
+            "ty": -3,
+            "tx": 1,
+            "ease": "easeOutQuad"
+          },
+          {
+            "t": 1,
+            "ty": 0,
+            "tx": 0,
+            "ease": "easeInQuad"
+          }
+        ]
+      }
+    },
+    "installing": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 300,
+          "cell": 0
+        },
+        {
+          "dur": 300,
+          "cell": 1
+        },
+        {
+          "dur": 300,
+          "cell": 2
+        },
+        {
+          "dur": 300,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "tx": 0
+          },
+          {
+            "t": 0.5,
+            "tx": 1,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 1,
+            "tx": 0,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "asking": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 420,
+          "cell": 0
+        },
+        {
+          "dur": 420,
+          "cell": 1
+        },
+        {
+          "dur": 420,
+          "cell": 2
+        },
+        {
+          "dur": 420,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "rot": 0,
+            "tx": 0
+          },
+          {
+            "t": 0.4,
+            "rot": 0.11,
+            "tx": 1,
+            "ease": "easeOutQuad"
+          },
+          {
+            "t": 1,
+            "rot": 0.11,
+            "tx": 1,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "waiting": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 500,
+          "cell": 0
+        },
+        {
+          "dur": 500,
+          "cell": 1
+        },
+        {
+          "dur": 500,
+          "cell": 2
+        },
+        {
+          "dur": 500,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "tx": 0
+          },
+          {
+            "t": 0.5,
+            "tx": -1,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 1,
+            "tx": 0,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "testing": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 150,
+          "cell": 0
+        },
+        {
+          "dur": 150,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "tx": -1
+          },
+          {
+            "t": 0.5,
+            "tx": 1,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 1,
+            "tx": -1,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "committing": {
+      "loop": false,
+      "frames": [
+        {
+          "dur": 110,
+          "cell": 0
+        },
+        {
+          "dur": 130,
+          "cell": 2
+        },
+        {
+          "dur": 170,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "sy": 1,
+            "ty": 0
+          },
+          {
+            "t": 0.3,
+            "sy": 0.84,
+            "ty": 3,
+            "ease": "easeOutQuad"
+          },
+          {
+            "t": 1,
+            "sy": 1,
+            "ty": 0,
+            "ease": "easeOutBounce"
+          }
+        ]
+      }
     }
   },
-  "props": {},
-  "reactions": {},
+  "props": {
+    "glasses": {
+      "cell": 0,
+      "anchor": [
+        0.5,
+        0.42
+      ],
+      "pop": 2
+    },
+    "magnifier": {
+      "cell": 1,
+      "anchor": [
+        0.72,
+        0.5
+      ],
+      "pop": 2
+    },
+    "pencil": {
+      "cell": 2,
+      "anchor": [
+        0.74,
+        0.56
+      ],
+      "pop": 2
+    },
+    "book": {
+      "cell": 3,
+      "anchor": [
+        0.72,
+        0.52
+      ],
+      "pop": 2
+    },
+    "exclaim": {
+      "cell": 4,
+      "anchor": [
+        0.8,
+        0.14
+      ],
+      "pop": 2
+    },
+    "question": {
+      "cell": 5,
+      "anchor": [
+        0.82,
+        0.12
+      ],
+      "pop": 2
+    },
+    "ellipsis": {
+      "cell": 6,
+      "anchor": [
+        0.84,
+        0.18
+      ],
+      "pop": 2
+    },
+    "sparkle": {
+      "cell": 7,
+      "anchor": [
+        0.24,
+        0.16
+      ],
+      "pop": 2
+    },
+    "idea": {
+      "cell": 8,
+      "anchor": [
+        0.5,
+        0.04
+      ],
+      "pop": 2
+    },
+    "heart": {
+      "cell": 9,
+      "anchor": [
+        0.76,
+        0.14
+      ],
+      "pop": 2
+    },
+    "check": {
+      "cell": 10,
+      "anchor": [
+        0.78,
+        0.16
+      ],
+      "pop": 2
+    },
+    "zzz": {
+      "cell": 11,
+      "anchor": [
+        0.74,
+        0.1
+      ],
+      "pop": 2
+    },
+    "steam": {
+      "cell": 12,
+      "anchor": [
+        0.5,
+        0.06
+      ],
+      "pop": 2
+    },
+    "dust": {
+      "cell": 13,
+      "anchor": [
+        0.5,
+        0.95
+      ],
+      "pop": 2
+    }
+  },
+  "reactions": {
+    "Reading": {
+      "clip": "reading",
+      "expression": "thinking",
+      "prop": "glasses",
+      "palette": "calm",
+      "priority": 2,
+      "return": "idle"
+    },
+    "Searching": {
+      "clip": "searching",
+      "expression": "thinking",
+      "prop": "magnifier",
+      "palette": "calm",
+      "priority": 2,
+      "return": "idle"
+    },
+    "Writing": {
+      "clip": "writing",
+      "expression": "thinking",
+      "prop": "pencil",
+      "palette": "calm",
+      "priority": 2,
+      "return": "idle"
+    },
+    "Running": {
+      "clip": "running",
+      "expression": "thinking",
+      "prop": "dust",
+      "palette": "calm",
+      "priority": 2,
+      "return": "idle"
+    },
+    "Testing": {
+      "clip": "testing",
+      "expression": "oops",
+      "prop": "ellipsis",
+      "palette": "calm",
+      "priority": 2,
+      "return": "idle"
+    },
+    "Installing": {
+      "clip": "installing",
+      "expression": "neutral",
+      "prop": "ellipsis",
+      "palette": "calm",
+      "priority": 2,
+      "return": "idle"
+    },
+    "Committing": {
+      "clip": "committing",
+      "expression": "happy",
+      "prop": "check",
+      "palette": "calm",
+      "priority": 3,
+      "return": "idle"
+    },
+    "Asking": {
+      "clip": "asking",
+      "expression": "thinking",
+      "prop": "question",
+      "palette": "calm",
+      "priority": 3,
+      "return": "idle"
+    },
+    "Waiting": {
+      "clip": "waiting",
+      "expression": "neutral",
+      "prop": "ellipsis",
+      "palette": "calm",
+      "priority": 1,
+      "return": "idle"
+    },
+    "Idea": {
+      "clip": "react",
+      "expression": "excited",
+      "prop": "idea",
+      "palette": "calm",
+      "priority": 4,
+      "return": "idle"
+    }
+  },
   "idle": {
     "base": "idle",
     "blink": {

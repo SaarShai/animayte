@@ -388,6 +388,24 @@ console.log('\nEngine — IDLE SYSTEM (B3, against the real slime manifest)');
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+console.log('\nEngine — TOOL GAGS + PROP LIBRARY (B4 / B5)');
+{
+  const m = buildSlimeManifest();
+  ok('props map has 14 props', Object.keys(m.props).length === 14);
+  ok('every prop has a sheet column + anchor', Object.values(m.props).every((p) => Number.isInteger(p.cell) && Array.isArray(p.anchor) && p.anchor.length === 2));
+  ok('prop columns are unique (0..13)', new Set(Object.values(m.props).map((p) => p.cell)).size === 14);
+  ok('manifest declares the prop sheet', m.propSheet === 'props.png' && m.propCell === 24);
+  const sig = ['Reading', 'Searching', 'Writing', 'Running', 'Committing', 'Asking', 'Installing', 'Waiting', 'Testing'];
+  ok('all signature tool reactions are defined', sig.every((r) => m.reactions[r]));
+  ok('every reaction references a real clip', Object.values(m.reactions).every((r) => m.clips[r.clip]));
+  ok('every reaction prop exists in the prop map', Object.values(m.reactions).every((r) => !r.prop || m.props[r.prop]));
+  ok('every reaction expression is a real face', Object.values(m.reactions).every((r) => !r.expression || m.expressions[r.expression]));
+  ok('reading = glasses + thinking', m.reactions.Reading.prop === 'glasses' && m.reactions.Reading.expression === 'thinking');
+  ok('running = dust', m.reactions.Running.prop === 'dust');
+  ok('tool clips loop (run until interrupted)', ['reading', 'searching', 'writing', 'running'].every((c) => m.clips[c].loop === true));
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 console.log('\nEngine — PET-PACK LOADER (C1)');
 
 console.log('  · lists and loads real packs');

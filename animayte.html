@@ -192,6 +192,7 @@
       removeBird:()=>{ ctrl.removeBird(); refresh(); },
       goSleep:()=>{ ctrl.sleep(); say('session resting 💤',2000); },
       reset:()=>{ ctrl.reset(); refresh(); },
+      petReact:(n)=>{ if(ctrl.reactByName) ctrl.reactByName(n); refresh(); },
       playDemo, floatOnScreen,
     });
   }
@@ -208,6 +209,7 @@
       case 'removeBird': ctrl.removeBird(); break;
       case 'clearBirds': ctrl.clearBirds(); break;
       case 'relief': if(ctrl.relief) ctrl.relief(); break;
+      case 'react': if(ctrl.reactByName) ctrl.reactByName(m.name); break;
       case 'sleep': ctrl.sleep(); break;
       case 'say': say(m.text, m.ms||3500); break;
     }

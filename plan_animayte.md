@@ -405,12 +405,12 @@ on his screen, sound cuteness, personality "vibes." Queue these in §11 "For Saa
 
 **Phase 0:** ☑ A1 ☑ A2 ☑ A6  ← Phase 0 COMPLETE
 **Phase 1:** ☑ A3 ☑ A4 ☑ B1 ☑ C1  ← Phase 1 COMPLETE
-**Phase 2:** ☑ A5 ☑ B2 ☑ B3 ☐ B4 ☐ B5
+**Phase 2:** ☑ A5 ☑ B2 ☑ B3 ☑ B4 ☑ B5  ← Phase 2 COMPLETE
 **Phase 3:** ☐ B6 ☐ C6 ☐ C3 ☐ C4 ☐ C2
 **Phase 4:** ☐ C5 ☐ C7 ☐ C8
 
-`npm test` last status: **PASS — 420 checks** (204 engine + 188 detection/consistency + 28 e2e) · Branch: `feat/anim-engine`
-A5 validated live via Preview MCP (thinking/excited/tired states, SSE round-trip, birds, swell, tint — screenshots clean, 0 console errors).
+`npm test` last status: **PASS — 439 checks** (223 engine + 188 detection/consistency + 28 e2e) · Branch: `feat/anim-engine`
+Validated live via Preview MCP: thinking/excited/tired (indexed swap)/sleepy; tool gags reading(glasses)/asking(?+head-tilt)/running(dust) — all render correctly; SSE round-trip works; 0 console errors.
 
 ---
 
@@ -490,6 +490,15 @@ A5 validated live via Preview MCP (thinking/excited/tired states, SSE round-trip
 - **Headless-preview gotcha (validation):** the Preview MCP tab throttles `requestAnimationFrame` to ~0
   when not painting, so eval+sleep "is it animating?" probes see a STALE canvas (rafFired:0). Use
   **screenshots** (they force a paint) for visual checks; use the sim tests + filmstrips for motion. (B3)
+- **B5 prop library** lives in `tools/draw-props.mjs` (its own module so the set can grow): 14 props
+  (glasses/magnifier/pencil/book/!/?/…/✨/💡/❤/✔/Z/steam/dust), ≤4 colors each, packed into a
+  `props.png` strip by the compiler. Manifest `props{cell,anchor,pop}` + `propSheet`/`propCell`. Runtime
+  overlays one at its body anchor with an `easeOutBack` 2-frame pop-in, scaling with the pet. (B5)
+- **B4 tool gags** = manifest clips (reading/searching/writing/running/installing/asking/waiting/
+  testing/committing) + a `reactions` map (event→clip+expression+prop+palette+priority+return). Tool
+  clips LOOP until interrupted; the runtime's `reactByName()` plays them (wired to an SSE `react` cmd
+  the daemon will emit in C6). Validated live: glasses+look-down (reading), `?`+head-tilt (asking, rot
+  track), dust+run-in-place (running). Priority arbitration confirmed (Running dropped under Asking). (B4)
 
 **For Saar to review / decide (non-blocking — I proceeded with a default):**
 - **Cursor-glance flair has NO real signal** (honest-mirror concern raised in `docs/animation-library.md`

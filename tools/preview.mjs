@@ -17,6 +17,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Canvas, encodePNG, blitScaled, drawText, fillRect, textWidth, hexToRgba } from '../lib/anim/png.mjs';
 import { drawSlime, CELL, FRAMES } from './make-assets.mjs';
+import { PROPS, PROP_CELL, drawProp } from './draw-props.mjs';
 import { EXPRESSIONS } from '../lib/expressions.mjs';
 import { buildSlimeManifest } from '../lib/anim/manifest.mjs';
 import { sampleTrack, squash } from '../lib/anim/transform.mjs';
@@ -127,6 +128,33 @@ export function squashStrip({ expression = 'neutral', from = -0.45, to = 0.6, st
   return { png: encodePNG(w, h, C.d), w, h, steps };
 }
 
+/**
+ * propSheet — every §4.5 prop upscaled + labelled on a dark + light split background
+ * (props must read on any wallpaper). The QA pass for the overlay library (B5).
+ */
+export function propSheet({ scale = 5 } = {}) {
+  const cellPx = PROP_CELL * scale;
+  const gap = 8, cols = 7;
+  const rows = Math.ceil(PROPS.length / cols);
+  const labelH = 12;
+  const w = gap + cols * (cellPx + gap);
+  const h = 24 + rows * (cellPx + labelH + gap);
+  const C = Canvas(w, h);
+  fillRect(C, 0, 0, w, h, BG);
+  drawText(C, gap, 8, 'prop / emote library  (' + PROPS.length + ')', INK, 2);
+  PROPS.forEach((name, i) => {
+    const cxi = i % cols, ryi = Math.floor(i / cols);
+    const x = gap + cxi * (cellPx + gap), y = 24 + ryi * (cellPx + labelH + gap);
+    // half dark / half light cell so contrast reads on any background
+    fillRect(C, x, y, cellPx / 2, cellPx, hexToRgba('#20303f'));
+    fillRect(C, x + cellPx / 2, y, cellPx / 2, cellPx, hexToRgba('#eef4fb'));
+    const tmp = Canvas(PROP_CELL, PROP_CELL); drawProp(tmp, 0, 0, name);
+    blitScaled(C, tmp, 0, 0, PROP_CELL, PROP_CELL, x, y, scale);
+    drawText(C, x, y + cellPx + 2, name, INK, 1);
+  });
+  return { png: encodePNG(w, h, C.d), w, h, count: PROPS.length };
+}
+
 // ---------- CLI ----------
 function write(name, { png, w, h }) {
   mkdirSync(OUT, { recursive: true });
@@ -144,6 +172,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   } else {
     console.log('rows (top→bottom):', EXPRESSIONS.map((e) => e.id).join(', '));
     write('contact-sheet.png', contactSheet({ scale: 4 }));
+    write('prop-sheet.png', propSheet({}));
     write('clip-idle.png', clipFilmstrip('idle', { steps: 8, expression: 'neutral' }));
     write('clip-react.png', clipFilmstrip('react', { steps: 8, expression: 'happy' }));
     write('squash.png', squashStrip({}));

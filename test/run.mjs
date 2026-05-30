@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const suites = ['expressions.test.mjs', 'integration.test.mjs'];
+const suites = ['anim.test.mjs', 'expressions.test.mjs', 'integration.test.mjs'];
 let failed = 0;
 for (const s of suites) {
   const r = spawnSync('node', [join(here, s)], { stdio: 'inherit' });

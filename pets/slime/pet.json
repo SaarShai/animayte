@@ -1,0 +1,222 @@
+{
+  "format": "animayte-pet/1",
+  "name": "slime",
+  "cell": 64,
+  "anchor": [
+    0.5,
+    1
+  ],
+  "layers": [
+    "shadow",
+    "outline",
+    "body",
+    "eyes",
+    "mouth",
+    "brows",
+    "prop"
+  ],
+  "palettes": {
+    "calm": {
+      "shadowCool": "#1E4D3B",
+      "shadow": "#2E7D4F",
+      "base": "#5BC661",
+      "highlight": "#9BE86A",
+      "rim": "#E8FBB0",
+      "outline": "#16352B",
+      "halo": "#FFFFFF4D",
+      "dropShadow": "#10231C59",
+      "eyeDark": "#16352B",
+      "catchlight": "#F2FBE9",
+      "blush": "#F6757A"
+    },
+    "tired": {
+      "shadowCool": "#1B3A47",
+      "shadow": "#2C5E6E",
+      "base": "#4FA6B0",
+      "highlight": "#7FCFCB",
+      "rim": "#CFEFE6",
+      "outline": "#15303B",
+      "halo": "#FFFFFF40",
+      "dropShadow": "#0E1F2659",
+      "eyeDark": "#15303B",
+      "catchlight": "#EAF7F4",
+      "blush": "#E58BA0"
+    },
+    "error": {
+      "shadowCool": "#5A1E22",
+      "shadow": "#8E2C30",
+      "base": "#E04A4A",
+      "highlight": "#F58A6A",
+      "rim": "#FDE0C0",
+      "outline": "#3A1416",
+      "halo": "#FFFFFF4D",
+      "dropShadow": "#2A0E1059",
+      "eyeDark": "#3A1416",
+      "catchlight": "#FFF0E8",
+      "blush": "#FF9BA0"
+    }
+  },
+  "defaultPalette": "calm",
+  "accentColors": {
+    "warm": "#FEE761",
+    "alert": "#E43B44",
+    "neutral": "#3A4466",
+    "sweat": "#7DC6FF",
+    "white": "#FFFFFF"
+  },
+  "expressions": {
+    "neutral": {
+      "eyes": "dots",
+      "mouth": "slight_smile"
+    },
+    "thinking": {
+      "eyes": "look_up",
+      "mouth": "flat_skew",
+      "brows": "one_raised"
+    },
+    "happy": {
+      "eyes": "happy_arc",
+      "mouth": "open_smile",
+      "accents": [
+        "blush"
+      ]
+    },
+    "excited": {
+      "eyes": "stars",
+      "mouth": "big_grin",
+      "accents": [
+        "blush"
+      ]
+    },
+    "oops": {
+      "eyes": "open",
+      "mouth": "awkward",
+      "brows": "worried",
+      "accents": [
+        "sweat"
+      ]
+    },
+    "embarrassed": {
+      "eyes": "wide",
+      "mouth": "small",
+      "accents": [
+        "flush"
+      ]
+    },
+    "sad": {
+      "eyes": "open",
+      "mouth": "frown",
+      "brows": "sad"
+    },
+    "sleepy": {
+      "eyes": "closed",
+      "mouth": "small",
+      "accents": [
+        "zzz"
+      ]
+    }
+  },
+  "clips": {
+    "idle": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 460
+        },
+        {
+          "dur": 460
+        },
+        {
+          "dur": 460
+        },
+        {
+          "dur": 460
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "sy": 1,
+            "ty": 0
+          },
+          {
+            "t": 0.5,
+            "sy": 1.03,
+            "ty": -1,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 1,
+            "sy": 1,
+            "ty": 0,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "blink": {
+      "loop": false,
+      "frames": [
+        {
+          "dur": 90
+        }
+      ]
+    },
+    "react": {
+      "loop": false,
+      "frames": [
+        {
+          "dur": 80
+        },
+        {
+          "dur": 110
+        },
+        {
+          "dur": 140
+        },
+        {
+          "dur": 160
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "sy": 1
+          },
+          {
+            "t": 0.2,
+            "sy": 0.88,
+            "ease": "easeOutQuad"
+          },
+          {
+            "t": 0.5,
+            "sy": 1.16,
+            "ease": "easeOutBack"
+          },
+          {
+            "t": 1,
+            "sy": 1,
+            "ease": "easeOutBounce"
+          }
+        ]
+      }
+    }
+  },
+  "props": {},
+  "reactions": {},
+  "idle": {
+    "base": "idle",
+    "blink": {
+      "minMs": 3000,
+      "maxMs": 6000
+    },
+    "secondary": [],
+    "boredAfterMs": 30000
+  },
+  "source": {
+    "expressions": "lib/expressions.mjs",
+    "generatedBy": "lib/anim/manifest.mjs#buildSlimeManifest"
+  }
+}

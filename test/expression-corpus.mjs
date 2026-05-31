@@ -65,6 +65,11 @@ export const ADVERSARIAL = [
   ['✔️ verified', 'happy', 'variation-selector emoji resolves'],
   ['great 👍🏽 work', 'happy', 'skin-tone modifier ignored'],
   ['Now let me restart the daemon', 'thinking', 'intent-to-work narration is a real "thinking" signal'],
+  // enumeration: a keyword that is just a NAME in a long list is not a feeling
+  ['Done. The 9 states (idle, running, failed, waiting, review) all map cleanly.', 'happy', 'a state-name list is not sad — "done" wins, the listed "failed" is ignored'],
+  ['we saw three issues: timeout, failed, crash', 'sad', 'a short failure list (≤2 commas) is still a real negative — the enum guard needs ≥3'],
+  // smart quotes: live transcripts use curly apostrophes — they must still match
+  ['that doesn’t work and the test won’t pass', 'sad', 'curly-apostrophe phrases normalize → still reads sad'],
 ];
 
 // ── SETTLED: no emotion present → null (the pet should NOT react) ──────────────
@@ -73,6 +78,10 @@ export const NULL_CASES = [
   'calling the function with three arguments',
   '',
   '   \n  ',
+  // a sad keyword that is only a NAME in a long list carries no feeling → null (holds prior)
+  'It uses all 9 states (idle, running-right, running-left, running, waving, jumping, failed, waiting, review).',
+  // reassurance: the bad word is present, but the agent says it did NOT happen → no fresh feeling
+  'it is traversing the database rather than failing instantly, so I keep going',
 ];
 
 // ── SETTLED: USER tone → how the pet reacts to being SPOKEN TO (detectUserTone).
@@ -137,6 +146,19 @@ export const SESSIONS = [
       // calm narration with no feeling word → stay as-is; the explicit "context full" line below carries it.
       ['Wrapping up the last change.', null],
       ['Context is getting full.', 'sleepy'],
+    ],
+  },
+  {
+    // a REAL all-success exploration session (the Claude/hatch-pet map) used to dip sad
+    // TWICE on bare state-name lists. After the enumeration guard it never does — it reads
+    // as the win it was. Locks the over-collapse fix end-to-end through the salience rule.
+    name: 'real: a success session never dips sad on state-name lists',
+    turns: [
+      ['Let me read the core SKILL.md and reference files.', 'thinking'],
+      ['I have the complete contract now.', 'happy'],
+      // null (no keyword survives the enum guard) → the salience window holds the prior happy.
+      ['animayte already uses all 9 states (idle, running, failed, waiting, review) plus its own layer.', 'happy'],
+      ['Done. The 9 states (idle, running, failed, waiting, review) all map cleanly.', 'happy'],
     ],
   },
 ];

@@ -27,6 +27,10 @@
   tr.changed td.show { color: #e6a817; font-weight: 600; }
   tr.neg { background: rgba(216,58,42,.06); }
   canvas { image-rendering: pixelated; display: block; }
+  .notice { max-width: 680px; margin: 40px auto; padding: 18px 20px; text-align: center;
+    border: 1px solid rgba(230,168,23,.35); border-radius: 10px; background: rgba(230,168,23,.07);
+    color: #d7c08a; font-size: 13px; line-height: 1.7; }
+  .notice code { color: #fff; background: rgba(255,255,255,.08); padding: 1px 6px; border-radius: 4px; }
 </style>
 </head>
 <body>
@@ -41,17 +45,24 @@
     <tbody id="rows"></tbody></table>
 
 <script type="module">
-  import { render, sizeCanvas } from '/grid/engine.mjs';
-  import { GRID, PALETTE, compose } from '/grid/creature.mjs';
-  import { byId } from '/lib/expressions.mjs';
-
+  // Dynamic imports inside try/catch: a STATIC import failure (e.g. opened without the
+  // grid server, or wrong root) can't be caught and dies to a silent blank page — which
+  // reads as "empty". This way every failure mode shows a visible reason instead.
   const which = new URLSearchParams(location.search).get('s') || 'codex';
   document.getElementById('tab-' + which)?.classList.add('on');
+  const notice = (html) => { document.getElementById('meta').innerHTML = `<div class="notice">${html}</div>`; };
+
+  try {
+  const [{ render, sizeCanvas }, { GRID, PALETTE, compose }, { byId }] = await Promise.all([
+    import('/grid/engine.mjs'), import('/grid/creature.mjs'), import('/lib/expressions.mjs'),
+  ]);
   const dpr = Math.max(1, window.devicePixelRatio || 1);
 
-  const data = await fetch(`/grid/maps/${which}.json`).then((r) => r.json()).catch(() => null);
-  if (!data) { document.getElementById('meta').textContent = 'no map data — run: node grid/map-session.mjs <transcript> --json grid/maps/' + which + '.json'; }
-  else {
+  const res = await fetch(`/grid/maps/${which}.json`);
+  if (!res.ok) {
+    notice(`No map for <b>${which}</b> yet (server returned ${res.status}).<br>Generate it:<br><code>node grid/map-session.mjs &lt;transcript.jsonl&gt; --json grid/maps/${which}.json</code>`);
+  } else {
+    const data = await res.json();
     document.getElementById('meta').textContent = `${data.name} · ${data.count} assistant messages · detected: ${Object.entries(data.dist).map(([k, v]) => k + ' ' + v).join('  ')}`;
     document.getElementById('timeline').textContent = 'pet-shows timeline:  ' + data.timeline.join('  →  ');
     const rows = document.getElementById('rows');
@@ -72,6 +83,10 @@
       const face = (byId(r.pick) && byId(r.pick).face) || {};
       render(ctx, compose(face, {}), PALETTE, { gridW: GRID.w, gridH: GRID.h, cell: 1.4 });
     }
+  }
+  } catch (e) {
+    notice(`Could not render the session map: <b>${(e && e.message) || e}</b>.<br>Is the grid server running from the project root? <code>node grid/serve.mjs 4370</code>`);
+    console.error(e);
   }
 </script>
 </body>

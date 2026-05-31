@@ -54,11 +54,13 @@ const clients = new Set();
 // session_id are ignored until a different session claims. No owner set ⇒ accept all (the
 // single-session default).
 let ownerSession = process.env.ANIMAYTE_SESSION || null;
-const ownsEvent = (sid) => !ownerSession || !sid || sid === ownerSession;
+// Once a session owns the pet, require a MATCHING session_id — a payload with no session_id must
+// NOT slip through (that would silently re-open the cross-session bleed). No owner ⇒ accept all.
+const ownsEvent = (sid) => !ownerSession || sid === ownerSession;
 
 function broadcast(cmd) {
   const line = `data: ${JSON.stringify(cmd)}\n\n`;
-  for (const res of clients) { try { res.write(line); } catch {} }
+  for (const res of clients) { try { res.write(line); } catch { clients.delete(res); } }  // drop dead sockets
 }
 // Full, authoritative state sync sent to every (re)connecting client. After a daemon
 // restart the server's state is fresh (0 birds, idle), so we clearBirds + re-set phase,
@@ -111,7 +113,7 @@ const addBird     = (label) => { if (state.birds.length >= 5) return; state.bird
 const removeBird  = () => { const b = state.birds.shift(); if (b) broadcast({ cmd: 'removeBird' }); };
 const hatch       = () => { if (state.phase !== 'alive') { state.phase = 'alive'; broadcast({ cmd: 'wake' }); } };
 const say         = (text, ms) => broadcast({ cmd: 'say', text, ms });
-const sleepPet    = () => { state.phase = 'sleeping'; broadcast({ cmd: 'sleep' }); };
+const sleepPet    = () => { if (waitTimer) { clearTimeout(waitTimer); waitTimer = null; } state.phase = 'sleeping'; broadcast({ cmd: 'sleep' }); };
 const freshStart  = () => { state.phase = 'alive'; state.birds = []; state.fullness = 0; state.mood = 'idle'; moodMeter.reset(); state.moodLevel = 0; state.moodLabel = 'level'; broadcast({ cmd: 'reset' }); };
 
 // context window size by model (2026): haiku=200k, opus/sonnet 4.x = 1M. Statusline overrides this.
@@ -164,14 +166,21 @@ async function readTranscriptTail(path) {
   return null;
 }
 
+// Was this tool call an ERROR? Only a STRUCTURED flag is reliable: Claude Code's Bash
+// tool_response has no exit code and ALWAYS carries an (often empty) "stderr" key, and normal
+// output routinely contains words like "error"/"failed" (grep, logs, test summaries). Inferring
+// an error from the response shape or text produced a constant false "😟 hit a snag" after every
+// command. MCP/real tool errors set `is_error: true`; everything else defers to the agent's own
+// words (the sentiment path), which is where a Bash failure naturally surfaces ("that didn't work").
 function isErrorResponse(ev) {
   const r = ev.tool_response;
   if (!r) return false;
-  if (typeof r === 'string') return /error|failed|exception|traceback|denied|not found/i.test(r);
-  if (typeof r === 'object') {
-    if (r.is_error || r.error) return true;
-    return /"is_error":true|stderr|"error"|failed|exception|traceback/i.test(JSON.stringify(r));
-  }
+  if (Array.isArray(r)) return r.some((b) => b && b.is_error === true);
+  // OBJECT responses (Bash, Read, …) ALWAYS carry an (often empty) "stderr" key and normal output
+  // routinely contains "error"/"failed" — so trust ONLY the structured flag, never the shape/text.
+  if (typeof r === 'object') return r.is_error === true;
+  // a STRING response that IS an error message (rare; most tools return objects) — word-boundaried.
+  if (typeof r === 'string') return /\b(error|failed|exception|traceback|denied)\b/i.test(r);
   return false;
 }
 
@@ -210,17 +219,24 @@ function applySentiment(recentTexts, ms = 3000) {
 // same (event, tool_use_id) — precise, version-tolerant, and it never touches events without an
 // id, so legitimate repeats (e.g. two SubagentStops) are unaffected.
 const seenTool = new Map();
+let lastStatusCtxAt = 0;   // when the statusline last gave an authoritative context % (transcript estimate yields to it)
 function isDuplicateTool(name, ev) {
   if (name !== 'PreToolUse' && name !== 'PostToolUse') return false;
   const id = ev.tool_use_id;
   if (!id) return false;
   const key = name + ':' + id;
-  const now = Date.now();
-  if (seenTool.size > 256) for (const [k, t] of seenTool) if (now - t > 30000) seenTool.delete(k);
   if (seenTool.has(key)) return true;
-  seenTool.set(key, now);
+  seenTool.set(key, Date.now());
+  // hard cap (Map keeps insertion order) — evict the oldest half so memory stays bounded under any load
+  if (seenTool.size > 1024) { let drop = seenTool.size - 512; for (const k of seenTool.keys()) { if (drop-- <= 0) break; seenTool.delete(k); } }
   return false;
 }
+
+// Serialize event handling: concurrent /event POSTs (parallel tool use) would otherwise
+// interleave their awaited transcript reads and let a STALE context/sentiment land after a
+// fresher one. Chaining through one promise keeps state mutations strictly in arrival order.
+let evQueue = Promise.resolve();
+const enqueueEvent = (ev) => (evQueue = evQueue.then(() => handleEvent(ev)).catch(() => {}));
 
 // ---- hook event -> pet behavior (+ real context + sentiment from agent text) ----
 async function handleEvent(ev) {
@@ -233,7 +249,8 @@ async function handleEvent(ev) {
   let tail = null;
   if (name === 'PostToolUse' || name === 'Stop') {
     tail = await readTranscriptTail(ev.transcript_path);
-    if (tail && tail.ctx && !reliefActive) { state.ctxTokens = tail.ctx.tokens; state.ctxWindow = tail.ctx.win; state.ctxPct = Math.round(tail.ctx.pct * 100); setFullness(tail.ctx.pct); }
+    // the transcript estimate yields to a fresh authoritative statusline % (avoids the two fighting)
+    if (tail && tail.ctx && !reliefActive && Date.now() - lastStatusCtxAt > 8000) { state.ctxTokens = tail.ctx.tokens; state.ctxWindow = tail.ctx.win; state.ctxPct = Math.round(tail.ctx.pct * 100); setFullness(tail.ctx.pct); }
   }
 
   switch (name) {
@@ -287,7 +304,7 @@ async function handleEvent(ev) {
       // when Claude finishes a turn, reflect the emotion of what it just said
       if (!applySentiment(tail && tail.recentTexts, 5000)) setMood(state.fullness > 0.8 ? 'sleepy' : 'neutral');
       // then, after a beat with no follow-up event, look up and around — expecting the user
-      waitTimer = setTimeout(() => { waitTimer = null; broadcast({ cmd: 'react', name: 'Waiting' }); }, 3500);
+      waitTimer = setTimeout(() => { waitTimer = null; if (state.phase === 'alive') broadcast({ cmd: 'react', name: 'Waiting' }); }, 3500);
       if (waitTimer.unref) waitTimer.unref();
       break;
     case 'PreCompact':   triggerRelief(); break;   // dramatic deflate + steam from the "ears"
@@ -300,7 +317,8 @@ async function handleEvent(ev) {
 function handleStatus(j) {
   state.lastEventAt = Date.now();   // the statusline feed is also a live-session signal (doctor reads this)
   const cw = j.context_window || {};
-  if (typeof cw.used_percentage === 'number') { state.ctxPct = Math.round(cw.used_percentage); setFullness(cw.used_percentage / 100); }
+  // statusline used_percentage is authoritative; don't yank fullness back up mid-/compact deflate
+  if (typeof cw.used_percentage === 'number') { state.ctxPct = Math.round(cw.used_percentage); if (!reliefActive) setFullness(Math.max(0, Math.min(1, cw.used_percentage / 100))); lastStatusCtxAt = Date.now(); }
   if (cw.context_window_size) state.ctxWindow = cw.context_window_size;
   if (typeof cw.total_input_tokens === 'number') state.ctxTokens = cw.total_input_tokens;
   if (j.model) state.model = j.model.display_name || j.model.id || state.model;
@@ -347,8 +365,9 @@ const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/jav
 
 function readBody(req, cb) {
   let body = '';
-  req.on('data', (c) => { body += c; if (body.length > 4_000_000) req.destroy(); });
+  req.on('data', (c) => { if (body.length < 4_000_000) body += c; });  // cap accumulation, but still respond on end
   req.on('end', () => cb(body));
+  req.on('error', () => cb(''));
 }
 
 const server = http.createServer(async (req, res) => {
@@ -361,7 +380,9 @@ const server = http.createServer(async (req, res) => {
     res.write('retry: 1500\n\n');
     clients.add(res);
     snapshotTo(res);
-    const ping = setInterval(() => { try { res.write(': ping\n\n'); } catch {} }, 20000);
+    // a REAL ping event (not an SSE `:` comment) so the client's onmessage fires — that lets the
+    // overlay run a heartbeat watchdog and detect a half-open stream. Renderers ignore cmd:'ping'.
+    const ping = setInterval(() => { try { res.write('data: {"cmd":"ping"}\n\n'); } catch { clearInterval(ping); clients.delete(res); } }, 20000);
     req.on('close', () => { clearInterval(ping); clients.delete(res); });
     return;
   }
@@ -369,9 +390,9 @@ const server = http.createServer(async (req, res) => {
     readBody(req, async (body) => {
       try {
         const ev = JSON.parse(body || '{}');
-        if (ownsEvent(ev.session_id)) await handleEvent(ev);   // ignore other concurrent sessions
+        if (ownsEvent(ev.session_id)) await enqueueEvent(ev);  // ignore other sessions; serialize ours
       } catch {}
-      res.writeHead(200); res.end('ok');
+      try { res.writeHead(200); res.end('ok'); } catch {}     // poster (curl -m) may have already hung up
     });
     return;
   }
@@ -381,7 +402,7 @@ const server = http.createServer(async (req, res) => {
         const j = JSON.parse(body || '{}');
         if (ownsEvent(j.session_id)) handleStatus(j);
       } catch {}
-      res.writeHead(200); res.end('ok');
+      try { res.writeHead(200); res.end('ok'); } catch {}
     });
     return;
   }
@@ -391,6 +412,7 @@ const server = http.createServer(async (req, res) => {
     readBody(req, (body) => {
       let sid = null; try { sid = JSON.parse(body || '{}').session_id || null; } catch {}
       ownerSession = sid;
+      if (waitTimer) { clearTimeout(waitTimer); waitTimer = null; }  // no stray "waiting" glance from the previous owner
       freshStart();
       say('👋 hi! I’m watching this session');
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -416,9 +438,9 @@ const server = http.createServer(async (req, res) => {
     const q = url.searchParams;
     if (q.has('phase')) { state.phase = q.get('phase'); if (state.phase === 'alive') broadcast({ cmd: 'wake' }); }
     if (q.has('mood')) { state.phase = 'alive'; setMood(q.get('mood')); }
-    if (q.has('fullness')) setFullness(Number(q.get('fullness')));
-    if (q.has('say')) say(q.get('say'), Number(q.get('ms') || 3500));
-    if (q.has('birds')) { const n = Math.max(0, Math.min(5, Number(q.get('birds')))); state.birds = Array.from({ length: n }, (_, i) => ({ id: birdSeq++, label: 'task ' + (i + 1) })); broadcast({ cmd: 'clearBirds' }); state.birds.forEach((b) => broadcast({ cmd: 'addBird', label: b.label })); }
+    if (q.has('fullness')) { const f = Number(q.get('fullness')); if (Number.isFinite(f)) setFullness(f); }
+    if (q.has('say')) say(q.get('say'), Number(q.get('ms')) || 3500);
+    if (q.has('birds')) { const n = Math.max(0, Math.min(5, Math.round(Number(q.get('birds')) || 0))); state.birds = Array.from({ length: n }, (_, i) => ({ id: birdSeq++, label: 'task ' + (i + 1) })); broadcast({ cmd: 'clearBirds' }); state.birds.forEach((b) => broadcast({ cmd: 'addBird', label: b.label })); }
     res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, state })); return;
   }
 
@@ -449,9 +471,13 @@ const moodDecay = setInterval(() => {
 }, 15000);
 if (moodDecay.unref) moodDecay.unref();   // don't keep the process alive just for decay
 
-// fail gracefully if the port is taken (a daemon is probably already running) — no ugly stack trace
+// On EADDRINUSE, retry a few times before giving up: on `restart` the just-killed daemon may
+// not have released the port yet (async socket teardown), and exiting immediately would leave
+// no daemon. After the retries, assume a real daemon is already running and exit cleanly.
+let listenRetries = 8;
 server.on('error', (err) => {
   if (err && err.code === 'EADDRINUSE') {
+    if (--listenRetries > 0) { setTimeout(() => { try { server.close(); } catch {} server.listen(PORT, '127.0.0.1'); }, 250); return; }
     console.error(`\n  🐣 animayte: port ${PORT} is already in use — a daemon is probably already running.`);
     console.error(`     • open it:        http://127.0.0.1:${PORT}`);
     console.error(`     • restart it:     bin/animayte restart`);

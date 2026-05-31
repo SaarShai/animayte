@@ -72,27 +72,30 @@
     }
   }
 
-  // seed from the daemon's current state for the first paint (the SSE stream resends a full
-  // snapshot on every connect, so this is just a head start, not the source of truth)
+  // seed mood/fullness/phase from /health for a fast first paint. NOT birds — the SSE snapshot
+  // is authoritative for birds (clearBirds + addBird) and seeding them here too would race it and
+  // double-count (the /health fetch can resolve after the snapshot already applied).
   const pill = document.getElementById('pill');
   fetch('/health').then((r) => r.json()).then((h) => {
     const s = (h && h.state) || {};
     if (typeof s.fullness === 'number') pet.setFullness(s.fullness);
-    if (Array.isArray(s.birds)) s.birds.forEach((b) => pet.addBird(b && b.label));
     if (s.mood) pet.setMood(s.mood);
     if (s.phase === 'sleeping') pet.sleep();
   }).catch(() => {});
 
-  // SSE with a reconnect supervisor — survives a daemon restart without a stuck pet. The
-  // daemon resends a full snapshot on every (re)connect (clearBirds + phase/fullness/mood),
-  // so the pet resyncs to the live session automatically when the daemon comes back.
-  let es = null, everLive = false, backoff = 1000, timer = 0;
+  // SSE with a reconnect supervisor + heartbeat watchdog — survives a daemon restart without a
+  // stuck pet. The daemon resends a full snapshot on every (re)connect and a cmd:'ping' every
+  // 20s; if no bytes arrive for 45s the stream is stale (half-open) so we force a reconnect.
+  let es = null, everLive = false, backoff = 1000, timer = 0, beat = 0;
   const schedule = () => { clearTimeout(timer); timer = setTimeout(open, backoff); backoff = Math.min(backoff * 1.7, 10000); };
+  const kick = () => { clearTimeout(beat); beat = setTimeout(() => { try { if (es) es.close(); } catch (_) {} open(); }, 45000); };
   function open() {
     clearTimeout(timer);
+    if (es) { try { es.close(); } catch (_) {} es = null; }   // never leak a second live stream
     try { es = new EventSource('/events'); } catch (_) { schedule(); return; }
-    es.onopen = () => { everLive = true; backoff = 1000; pill.textContent = '● live'; pill.style.color = '#19b36b'; };
-    es.onmessage = (e) => { try { dispatch(JSON.parse(e.data)); } catch (_) {} };
+    kick();
+    es.onopen = () => { everLive = true; backoff = 1000; pill.textContent = '● live'; pill.style.color = '#19b36b'; kick(); };
+    es.onmessage = (e) => { kick(); try { dispatch(JSON.parse(e.data)); } catch (_) {} };
     es.onerror = () => {
       pill.textContent = everLive ? '… reconnecting' : '○ waiting…';
       pill.style.color = everLive ? '#e3a008' : '';

@@ -12,6 +12,7 @@ import http from 'node:http';
 const PORT = process.env.ANIMAYTE_PORT ? Number(process.env.ANIMAYTE_PORT) : 4321;
 
 let s = '';
+process.stdin.setEncoding('utf8');   // decode properly — don't corrupt a multi-byte char split across chunks
 process.stdin.on('data', (d) => (s += d));
 process.stdin.on('end', () => {
   let j = {}; try { j = JSON.parse(s || '{}'); } catch {}

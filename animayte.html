@@ -233,14 +233,19 @@
   function connectLive(){
     if(location.protocol==='file:') return;
     const pill=$('livePill');
-    let es=null, everLive=false, backoff=1000, timer=null;
+    let es=null, everLive=false, backoff=1000, timer=null, beat=null;
     const setPill=(t,c)=>{ if(pill){ pill.textContent=t; pill.style.color=c||''; } };
     function schedule(){ clearTimeout(timer); timer=setTimeout(open, backoff); backoff=Math.min(backoff*1.7, 10000); }
+    // heartbeat: the daemon sends a snapshot on connect + cmd:'ping' every 20s; no bytes for 45s
+    // ⇒ half-open/stale stream, force a reconnect (catches "onopen fired but no data" stuck pets).
+    function kick(){ clearTimeout(beat); beat=setTimeout(()=>{ try{ if(es) es.close(); }catch(_){} open(); }, 45000); }
     function open(){
       clearTimeout(timer);
+      if(es){ try{ es.close(); }catch(_){} es=null; }  // never leak a second live stream
       try{ es=new EventSource('/events'); }catch(_){ schedule(); return; }
-      es.onopen=()=>{ live=true; everLive=true; backoff=1000; setPill('● live','#19b36b'); };
-      es.onmessage=e=>{ try{ dispatch(JSON.parse(e.data)); }catch(_){} };
+      kick();
+      es.onopen=()=>{ live=true; everLive=true; backoff=1000; setPill('● live','#19b36b'); kick(); };
+      es.onmessage=e=>{ kick(); try{ dispatch(JSON.parse(e.data)); }catch(_){} };
       es.onerror=()=>{
         live=false;
         setPill(everLive?'… reconnecting':'○ waiting…', everLive?'#e3a008':'');

@@ -33,7 +33,9 @@ pet_up() { pgrep -f "dijon-pet|AnimaytePet|animayte_pet.py" >/dev/null 2>&1; }
 start_daemon() {
   if [ -n "$NODE" ] && ! daemon_up; then
     ANIMAYTE_PORT="$PORT" ANIMAYTE_PET="$PET" ANIMAYTE_PERSONALITY="$PERSONA" nohup "$NODE" "$DAEMON" >"$LOGDIR/animayte_daemon.log" 2>&1 &
-    sleep 0.6
+    # WAIT until it's actually serving (up to ~6s) — never let the pet's webview load against a
+    # dead port (it would show blank with no retry), and make sure /claim below lands.
+    local i=0; while [ "$i" -lt 60 ] && ! daemon_up; do sleep 0.1; i=$((i + 1)); done
   fi
 }
 

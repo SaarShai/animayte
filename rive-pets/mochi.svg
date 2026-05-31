@@ -1,0 +1,68 @@
+<!-- mochi: chubby kitten · §4.2 mint-green ramp (cool teal shadow → fresh green mid → warm honey rim) -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="200" height="200">
+  <defs>
+    <linearGradient id="mochiBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#FCF6C9"/>
+      <stop offset="16%" stop-color="#BFE89A"/>
+      <stop offset="46%" stop-color="#7BCB7C"/>
+      <stop offset="78%" stop-color="#3E9266"/>
+      <stop offset="100%" stop-color="#235A52"/>
+    </linearGradient>
+    <linearGradient id="mochiEar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#A7DD8A"/>
+      <stop offset="100%" stop-color="#4FA06B"/>
+    </linearGradient>
+  </defs>
+
+  <!-- shadow -->
+  <ellipse id="shadow" cx="50" cy="92.5" rx="27" ry="4" fill="#10241F59"/>
+
+  <!-- body (rounded, slightly squat) -->
+  <g id="cat">
+    <!-- ears: behind/into the head, dark outline matches body -->
+    <path id="earL" d="M 27 27 Q 23 11 36 19 Q 33 27 30 31 Z" fill="url(#mochiEar)" stroke="#1C4038" stroke-width="2" stroke-linejoin="round"/>
+    <path id="earR" d="M 73 27 Q 77 11 64 19 Q 67 27 70 31 Z" fill="url(#mochiEar)" stroke="#1C4038" stroke-width="2" stroke-linejoin="round"/>
+    <!-- inner-ear blush -->
+    <path id="earInL" d="M 29 23 Q 28 18 33 20 Q 31 24 30 27 Z" fill="#F4949A" opacity="0.85"/>
+    <path id="earInR" d="M 71 23 Q 72 18 67 20 Q 69 24 70 27 Z" fill="#F4949A" opacity="0.85"/>
+
+    <!-- head/body as one soft rounded blob -->
+    <path id="body" d="M 50 21
+      C 70 21 84 33 84 53
+      C 84 74 70 87 50 87
+      C 30 87 16 74 16 53
+      C 16 33 30 21 50 21 Z"
+      fill="url(#mochiBody)" stroke="#1C4038" stroke-width="2.4" stroke-linejoin="round"/>
+
+    <!-- rim highlight on the crown -->
+    <ellipse id="rim" cx="40" cy="34" rx="8.5" ry="6" fill="#FCF6C9" opacity="0.5"/>
+
+    <!-- little paws -->
+    <ellipse id="pawL" cx="36" cy="85" rx="6.5" ry="4.5" fill="#7BCB7C" stroke="#1C4038" stroke-width="2" stroke-linejoin="round"/>
+    <ellipse id="pawR" cx="64" cy="85" rx="6.5" ry="4.5" fill="#7BCB7C" stroke="#1C4038" stroke-width="2" stroke-linejoin="round"/>
+  </g>
+
+  <!-- face -->
+  <g id="face">
+    <!-- blush -->
+    <ellipse id="blushL" cx="32" cy="60" rx="6" ry="3.4" fill="#F4949A" opacity="0.7"/>
+    <ellipse id="blushR" cx="68" cy="60" rx="6" ry="3.4" fill="#F4949A" opacity="0.7"/>
+
+    <!-- big eyes: dark base + white + 1px catchlight -->
+    <g id="eyeL">
+      <ellipse cx="38" cy="53" rx="5" ry="6.2" fill="#16332C"/>
+      <circle  cx="39.6" cy="51" r="1.7" fill="#F2FBE9"/>
+      <circle  cx="36.6" cy="55.4" r="0.9" fill="#F2FBE9" opacity="0.8"/>
+    </g>
+    <g id="eyeR">
+      <ellipse cx="62" cy="53" rx="5" ry="6.2" fill="#16332C"/>
+      <circle  cx="63.6" cy="51" r="1.7" fill="#F2FBE9"/>
+      <circle  cx="60.6" cy="55.4" r="0.9" fill="#F2FBE9" opacity="0.8"/>
+    </g>
+
+    <!-- tiny nose + soft cat mouth (neutral-happy) -->
+    <path id="nose"  d="M 48.4 62 Q 50 63.4 51.6 62 Q 50 64 48.4 62 Z" fill="#C76B6F"/>
+    <path id="mouth" d="M 50 63 Q 45.5 67.5 42 64 M 50 63 Q 54.5 67.5 58 64"
+      fill="none" stroke="#16332C" stroke-width="1.8" stroke-linecap="round"/>
+  </g>
+</svg>

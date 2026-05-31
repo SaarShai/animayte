@@ -46,10 +46,14 @@
 
 ## What's pending — ⏳ (needs a human + the proprietary Rive editor)
 
-1. **Author the character `.riv`** (`pets/<name>/pet.riv` for slime + bean) in the Rive editor, following
-   `docs/rive-build-guide.md` + `rive-export/`. *This is the one thing an agent can't do — the editor is a
-   visual SaaS tool, and a hand-rolled binary `.riv` would be crude (defeating the point of adopting Rive).*
-   The moment the file lands in the pack, `animayte.html` uses it automatically.
+1. **Author the character `.riv`** in the Rive editor. *No automated path exists* (researched 2026): the
+   `.riv` format has readers but **no public writer** (codegen = multi-week reverse-engineering, not worth
+   it); Rive's AI does **logic/state-machines only, not artwork**; text/image→Rive doesn't exist; Lottie
+   import is Enterprise-only + discouraged. **The realistic fastest path = import an SVG → finish in the
+   FREE editor** (SVG import preserves paths/groups/named-IDs/gradients; the only manual work is rigging +
+   the state machine, which we already have a contract for). Candidate designs ready: **`rive-pets/`**
+   (Mochi/Pip/Boo — cute, import-clean SVGs) + `rive-export/` (our existing slime/bean as SVG + build-spec).
+   The moment a `pet.riv` lands in a pack, `animayte.html` uses it automatically.
 2. **Compile + run `desktop/rive/`** once a `.riv` exists (`swift build`; the code is written). Then optionally
    add SSE streaming (vs /health polling) for crisper trigger timing.
 3. **De-risk profile** (research open question): on a Mac, run the `.riv` in `desktop/rive/` and in a browser tab,

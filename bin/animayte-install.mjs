@@ -227,6 +227,8 @@ export async function doctor({ port = Number(process.env.ANIMAYTE_PORT) || DEFAU
   const health = await probeHealth(port);
   if (health && health.ok) {
     ok('daemon is up', `http://127.0.0.1:${port}`);
+    if (health.owner) ok('pet is bound to one session', `owner ${String(health.owner).slice(0, 8)}… (other sessions ignored)`);
+    else info('pet is not bound to a session — it reflects whichever session acted most recently (run bin/animayte start from the session you want).');
     const st = health.state || {};
     // 3) is a live session actually driving it? (lastEventAt = last REAL hook/statusline,
     //    not state.updated which ticks at boot — a fresh idle daemon must not read as "live")

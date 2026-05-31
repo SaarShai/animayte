@@ -47,6 +47,15 @@ const moodMeter = createMoodMeter();
 let birdSeq = 1;
 const clients = new Set();
 
+// ---- session ownership (reliable connection) ----
+// Every Claude Code session in a repo POSTs to the same daemon, so without this the pet
+// shows a BLEND of all concurrent sessions. The session that summons the pet (bin/animayte
+// → POST /claim with CLAUDE_CODE_SESSION_ID) becomes the owner; events/status from any other
+// session_id are ignored until a different session claims. No owner set ⇒ accept all (the
+// single-session default).
+let ownerSession = process.env.ANIMAYTE_SESSION || null;
+const ownsEvent = (sid) => !ownerSession || !sid || sid === ownerSession;
+
 function broadcast(cmd) {
   const line = `data: ${JSON.stringify(cmd)}\n\n`;
   for (const res of clients) { try { res.write(line); } catch {} }
@@ -329,14 +338,39 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (url.pathname === '/event' && req.method === 'POST') {
-    readBody(req, async (body) => { try { await handleEvent(JSON.parse(body || '{}')); } catch {} res.writeHead(200); res.end('ok'); });
+    readBody(req, async (body) => {
+      try {
+        const ev = JSON.parse(body || '{}');
+        if (ownsEvent(ev.session_id)) await handleEvent(ev);   // ignore other concurrent sessions
+      } catch {}
+      res.writeHead(200); res.end('ok');
+    });
     return;
   }
   if (url.pathname === '/status' && req.method === 'POST') {
-    readBody(req, (body) => { try { handleStatus(JSON.parse(body || '{}')); } catch {} res.writeHead(200); res.end('ok'); });
+    readBody(req, (body) => {
+      try {
+        const j = JSON.parse(body || '{}');
+        if (ownsEvent(j.session_id)) handleStatus(j);
+      } catch {}
+      res.writeHead(200); res.end('ok');
+    });
     return;
   }
-  if (url.pathname === '/health') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, state })); return; }
+  // claim the pet for one session — bin/animayte passes CLAUDE_CODE_SESSION_ID so the pet
+  // follows exactly the session that summoned it (re-summon from another session to transfer).
+  if (url.pathname === '/claim' && req.method === 'POST') {
+    readBody(req, (body) => {
+      let sid = null; try { sid = JSON.parse(body || '{}').session_id || null; } catch {}
+      ownerSession = sid;
+      freshStart();
+      say('👋 hi! I’m watching this session');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, owner: ownerSession }));
+    });
+    return;
+  }
+  if (url.pathname === '/health') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, owner: ownerSession, state })); return; }
 
   // expression tester — run the REAL detector on arbitrary text and report the result
   if (url.pathname === '/detect') {

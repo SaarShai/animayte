@@ -138,6 +138,7 @@ fix for anything wrong.
 | Context % stuck at 0 | **no transcript** / new session | it fills once the session has a `usage` object (after the first turn) |
 | Pet reacts **twice** to everything | you forced `--with-hooks` while the plugin is on | re-run plain `bin/animayte install` (statusline-only), or disable the plugin |
 | Overlay shows `… reconnecting` and stays there | daemon is down | `bin/animayte start`; it re-attaches automatically when the daemon returns |
+| Pet reacts to the *wrong* session | several Claude Code sessions share the one daemon | run `bin/animayte start` from the session you want — it **claims** the pet (via `CLAUDE_CODE_SESSION_ID`) and all other sessions are ignored. `doctor` shows the bound owner. |
 | Statusline didn't appear | you already had a statusline | animayte won't overwrite it — `doctor` prints how to switch |
 
 ### Debug tools

@@ -37,6 +37,16 @@ start_daemon() {
   fi
 }
 
+# Bind the pet to THIS Claude Code session so it ignores every other session POSTing to the
+# shared daemon (otherwise it shows a blend of all concurrent sessions in the repo). Re-running
+# `start` from another session transfers ownership to it.
+claim_session() {
+  local sid="${CLAUDE_CODE_SESSION_ID:-${ANIMAYTE_SESSION:-}}"
+  [ -n "$sid" ] || return 0
+  curl -s -m 1 -X POST "http://127.0.0.1:$PORT/claim" -H 'content-type: application/json' \
+    --data "{\"session_id\":\"$sid\"}" >/dev/null 2>&1 || true
+}
+
 build_swift() {                                   # $1=source $2=binary ; 0 if a runnable binary exists
   [ "$(uname)" = "Darwin" ] || return 1
   [ -n "$SWIFTC" ] || return 1
@@ -76,6 +86,7 @@ launch_pet() {
 
 start() {
   start_daemon
+  claim_session                     # bind the pet to this session before the window appears
   launch_pet || return 1
   daemon_up && echo "   live: reacting to this session ●" || echo "   (idle mode — start a session to see it react)"
 }

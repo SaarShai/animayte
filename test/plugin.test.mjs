@@ -139,6 +139,27 @@ try {
     ok('`bin/animayte uninstall` exits 0', un.code === 0);
     ok('uninstall removed every animayte hook group', !/#animayte/.test(readFileSync(settings, 'utf8')));
   }
+
+  // ---- session ownership: the pet follows ONE session, ignores other concurrent ones ----
+  console.log('· session ownership — one session drives the pet, others are ignored');
+  {
+    await post(port, '/claim', { session_id: 'SESS_A' });
+    let h = await getJSON(port, '/health');
+    ok('claim sets the owner', h && h.owner === 'SESS_A');
+    ok('claim resets the pet to idle', h && h.state.mood === 'idle');
+
+    await post(port, '/event', { hook_event_name: 'UserPromptSubmit', prompt: 'this is amazing, you nailed it!', session_id: 'SESS_B' });
+    h = await getJSON(port, '/health');
+    ok('a praise event from ANOTHER session is ignored (mood unchanged)', h.state.mood === 'idle');
+
+    await post(port, '/event', { hook_event_name: 'UserPromptSubmit', prompt: 'this is amazing, you nailed it!', session_id: 'SESS_A' });
+    h = await getJSON(port, '/health');
+    ok("the OWNER's praise event takes effect", h.state.mood === 'excited');
+
+    await post(port, '/claim', { session_id: 'SESS_C' });
+    h = await getJSON(port, '/health');
+    ok('re-claim transfers ownership to a new session', h.owner === 'SESS_C');
+  }
 } finally {
   await stop(daemon);
   delete process.env.ANIMAYTE_SETTINGS;

@@ -157,13 +157,19 @@
   if(new URLSearchParams(location.search).has('bare')) document.body.classList.add('bare');
 
   // ---- float on screen: always-on-top draggable window via Document Picture-in-Picture ----
+  // The browser controls where a PiP window opens (the API exposes no position), but we can
+  // remember its SIZE so it comes back the way you left it. (Native pets remember position too.)
+  const PIP_KEY='animayte.pip.size';
+  function savedPipSize(){ try{ const s=JSON.parse(localStorage.getItem(PIP_KEY)); if(s&&s.width>=140&&s.height>=140) return s; }catch(_){} return { width:220, height:238 }; }
+  function rememberPipSize(w,h){ try{ if(w>=140&&h>=140) localStorage.setItem(PIP_KEY, JSON.stringify({ width:Math.round(w), height:Math.round(h) })); }catch(_){} }
   let pipReturn=null;
   async function floatOnScreen(){
     const stage=document.querySelector('.stage');
     if('documentPictureInPicture' in window){
       try{
         if(window.documentPictureInPicture.window){ window.documentPictureInPicture.window.focus(); return; }
-        const pip=await window.documentPictureInPicture.requestWindow({ width:220, height:238 });
+        const pip=await window.documentPictureInPicture.requestWindow(savedPipSize());
+        pip.addEventListener('resize',()=>rememberPipSize(pip.innerWidth, pip.innerHeight));
         const st=pip.document.createElement('style');
         st.textContent='html,body{margin:0;height:100%;overflow:hidden;background:transparent;-webkit-user-select:none;user-select:none;cursor:grab}'+
           '.stage{width:100%!important;height:100%!important;border-radius:0!important;margin:0!important;background:transparent!important;box-shadow:none!important}'+
@@ -214,17 +220,36 @@
       case 'moodLevel': if(ctrl.setMoodLevel) ctrl.setMoodLevel(m.value); break;
       case 'sleep': ctrl.sleep(); break;
       case 'say': say(m.text, m.ms||3500); break;
+      // additive: the full FeatureSpec for spec-aware renderers. No-op until the runtime
+      // exposes applySpec (legacy 'mood'/'react' cmds keep driving today's renderers).
+      case 'express': if(ctrl.applySpec) ctrl.applySpec(m.spec); break;
     }
     refresh();
   }
+  // SSE with an explicit reconnect supervisor: EventSource auto-retries, but if the daemon
+  // is restarted (or the browser gives up and lands in CLOSED) we re-open with backoff so
+  // the pet never gets stuck "● live" against a dead stream. The daemon resends a full
+  // state snapshot on every (re)connection, so the pet resyncs without a manual refresh.
   function connectLive(){
     if(location.protocol==='file:') return;
-    try{
-      const es=new EventSource('/events'); const pill=$('livePill');
-      es.onopen=()=>{ live=true; if(pill){pill.textContent='● live';pill.style.color='#19b36b';} };
-      es.onerror=()=>{ if(pill && !live) pill.textContent='○ waiting…'; };
+    const pill=$('livePill');
+    let es=null, everLive=false, backoff=1000, timer=null;
+    const setPill=(t,c)=>{ if(pill){ pill.textContent=t; pill.style.color=c||''; } };
+    function schedule(){ clearTimeout(timer); timer=setTimeout(open, backoff); backoff=Math.min(backoff*1.7, 10000); }
+    function open(){
+      clearTimeout(timer);
+      try{ es=new EventSource('/events'); }catch(_){ schedule(); return; }
+      es.onopen=()=>{ live=true; everLive=true; backoff=1000; setPill('● live','#19b36b'); };
       es.onmessage=e=>{ try{ dispatch(JSON.parse(e.data)); }catch(_){} };
-    }catch(_){}
+      es.onerror=()=>{
+        live=false;
+        setPill(everLive?'… reconnecting':'○ waiting…', everLive?'#e3a008':'');
+        if(es && es.readyState===2){ try{ es.close(); }catch(_){} schedule(); }  // CLOSED → re-open ourselves
+      };
+    }
+    open();
+    // a backgrounded tab can have its stream die silently — re-open on return if it's closed
+    document.addEventListener('visibilitychange',()=>{ if(!document.hidden && es && es.readyState===2) open(); });
   }
 
   // ---- scripted demo (drives whichever controller is active) ----
@@ -312,17 +337,35 @@
       try{
         let pet='slime', personaName='adaptive', sound=false, volume=0.6;
         try{ const h=await fetch('/health').then(r=>r.json()); const st=(h&&h.state)||{}; pet=st.pet||'slime'; personaName=st.personality||'adaptive'; sound=st.sound===true; if(typeof st.volume==='number') volume=st.volume; }catch(_){}
-        // engine preference: Rive (.riv) → PixiJS (GPU) → Canvas2D. Override with ?engine=rive|pixi|canvas
+        // engine preference: Codex atlas (baked) → Rive (.riv) → PixiJS (GPU) → Canvas2D.
+        // Override with ?engine=codex|rive|pixi|canvas
         const forceEngine=new URLSearchParams(location.search).get('engine');
         const manifestUrl='/pets/'+pet+'/pet.json';
         let personality=null;
         try{ personality=await fetch('/personalities/'+personaName+'.json').then(r=>r.ok?r.json():null); }catch(_){}
+        // fetch the pet manifest once — its SHAPE selects the renderer for baked formats
+        let manifest=null;
+        try{ manifest=await fetch(manifestUrl).then(r=>r.ok?r.json():null); }catch(_){}
         const setPill=(t)=>{ const p=$('livePill'); if(p) p.title=t; };
-        const useCanvas=async()=>{ const mod=await import('/lib/anim/runtime.mjs'); ctrl=await mod.createRuntime(cv,{ manifestUrl, personality, sound, volume, reduceMotion }); setPill('engine: Canvas2D'); };
+        const useCanvas=async()=>{ const mod=await import('/lib/anim/runtime.mjs'); ctrl=await mod.createRuntime(cv,{ manifestUrl, manifest, personality, sound, volume, reduceMotion }); setPill('engine: Canvas2D'); };
         const usePixi=async()=>{ const PIXI=await import('/assets/vendor/pixi/pixi.mjs'); const mod=await import('/lib/pixi/runtime.mjs'); ctrl=await mod.createPixiRuntime(cv,{ PIXI, manifestUrl, personality, sound, volume, reduceMotion }); setPill('engine: PixiJS (GPU)'); };
+        const useCodex=async()=>{
+          // Codex atlases are often illustrated (not pixel art): raise the backing-store
+          // resolution and drop nearest-neighbour upscaling so the downscaled cell stays crisp.
+          const aspect=cv.width/cv.height || (160/173);
+          const h=Math.min(768, Math.round(208*2*Math.min(2,window.devicePixelRatio||1)));
+          cv.height=h; cv.width=Math.round(h*aspect); cv.style.imageRendering='auto';
+          const mod=await import('/lib/codex/runtime.mjs');
+          ctrl=await mod.createCodexRuntime(cv,{ manifestUrl, manifest, personality, reduceMotion }); setPill('engine: Codex (Canvas2D)');
+        };
+        // a Codex pet is detected by manifest SHAPE (no animayte-pet/1 format + a spritesheetPath)
+        const F=await import('/lib/codex/format.mjs');
+        const isCodex = forceEngine==='codex' || F.isCodexManifest(manifest);
         let riveSrc=null;
-        if(forceEngine!=='pixi' && forceEngine!=='canvas'){ try{ const hr=await fetch('/pets/'+pet+'/pet.riv',{method:'HEAD'}); if(hr.ok) riveSrc='/pets/'+pet+'/pet.riv'; }catch(_){} }
-        if(riveSrc){
+        if(!isCodex && forceEngine!=='pixi' && forceEngine!=='canvas'){ try{ const hr=await fetch('/pets/'+pet+'/pet.riv',{method:'HEAD'}); if(hr.ok) riveSrc='/pets/'+pet+'/pet.riv'; }catch(_){} }
+        if(isCodex){
+          await useCodex();
+        } else if(riveSrc){
           await loadScript('/assets/vendor/rive/rive.js');
           window.rive.RuntimeLoader.setWasmUrl('/assets/vendor/rive/rive.wasm');
           const mod=await import('/lib/rive/driver.mjs');

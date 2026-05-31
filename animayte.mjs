@@ -41,6 +41,7 @@ const state = {
   rateLimitPct: 0, effort: null, thinking: false,
   moodLevel: 0, moodLabel: 'level',            // slow-moving mood drift (C4): up / level / stressed
   reliefSeq: 0, updated: Date.now(),
+  lastEventAt: 0,                              // last REAL hook/statusline arrival (0 = never) — doctor's "is a session driving?" signal
 };
 const moodMeter = createMoodMeter();
 let birdSeq = 1;
@@ -50,10 +51,18 @@ function broadcast(cmd) {
   const line = `data: ${JSON.stringify(cmd)}\n\n`;
   for (const res of clients) { try { res.write(line); } catch {} }
 }
+// Full, authoritative state sync sent to every (re)connecting client. After a daemon
+// restart the server's state is fresh (0 birds, idle), so we clearBirds + re-set phase,
+// fullness and mood — otherwise a client that reconnects keeps stale birds/mood (a "stuck
+// pet"). Every command here is idempotent, so this is safe on the first connect too.
 function snapshotTo(res) {
-  res.write(`data: ${JSON.stringify({ cmd: 'fullness', value: state.fullness })}\n\n`);
-  for (const b of state.birds) res.write(`data: ${JSON.stringify({ cmd: 'addBird', label: b.label })}\n\n`);
-  res.write(`data: ${JSON.stringify({ cmd: 'mood', value: state.mood })}\n\n`);
+  const send = (cmd) => { try { res.write(`data: ${JSON.stringify(cmd)}\n\n`); } catch {} };
+  send({ cmd: state.phase === 'sleeping' ? 'sleep' : 'wake' });
+  send({ cmd: 'clearBirds' });
+  for (const b of state.birds) send({ cmd: 'addBird', label: b.label });
+  send({ cmd: 'fullness', value: state.fullness });
+  send({ cmd: 'mood', value: state.mood });
+  send({ cmd: 'moodLevel', value: state.moodLevel, label: state.moodLabel });
 }
 
 const setMood     = (value, ms) => { state.mood = value; state.updated = Date.now(); broadcast({ cmd: 'mood', value, ms }); applyMoodDrift(value); };
@@ -156,8 +165,11 @@ function isErrorResponse(ev) {
 // it builds a SIGNAL, calls appraise() → a FeatureSpec, and broadcasts it. RECENCY-FIRST
 // text selection + cause/intensity/expectedness all happen inside appraise().
 let lastValence = 0;
-// abstract item (prop) → the current renderer's reaction that carries it (transitional
-// bridge; Route 2's spec-aware renderer will consume spec.item directly and retire this).
+// TRANSITIONAL BRIDGE (Goal #5). abstract item (prop) → the legacy reaction the current
+// renderers understand. The `express` cmd below already carries spec.item, so once Art's
+// renderer exposes pet.applySpec (the overlays wire `case 'express': pet.applySpec(spec)`
+// guarded), retiring this is a one-liner: delete REACTION_FOR_ITEM + the `react` broadcast
+// marked RETIRE below. Until every renderer consumes the spec, we must send both.
 const REACTION_FOR_ITEM = { hammer: 'Writing', terminal: 'Running', magnifier: 'Searching', globe: 'Fetching', lightbulb: 'Planning' };
 
 function applySpec(spec, ms = 3000) {
@@ -168,9 +180,9 @@ function applySpec(spec, ms = 3000) {
   lastValence = spec.valence;
   state.sentiment = spec.expression;
   setMood(spec.expression, ms);                      // legacy mood cmd — current renderers react
-  if (spec.item && REACTION_FOR_ITEM[spec.item]) broadcast({ cmd: 'react', name: REACTION_FOR_ITEM[spec.item] });
+  if (spec.item && REACTION_FOR_ITEM[spec.item]) broadcast({ cmd: 'react', name: REACTION_FOR_ITEM[spec.item] });  // RETIRE with the bridge
   const { _text, ...clean } = spec;
-  broadcast({ cmd: 'express', spec: clean });        // NEW: the full FeatureSpec for spec-aware renderers (additive)
+  broadcast({ cmd: 'express', spec: clean });        // the full FeatureSpec for spec-aware renderers (already authoritative)
   return true;
 }
 // agent's own recent words → a FeatureSpec (recency-first inside appraise)
@@ -181,6 +193,7 @@ function applySentiment(recentTexts, ms = 3000) {
 // ---- hook event -> pet behavior (+ real context + sentiment from agent text) ----
 async function handleEvent(ev) {
   const name = ev.hook_event_name || ev.event || ev.hookEventName || '';
+  state.lastEventAt = Date.now();   // a real hook arrived → a live session is driving us (doctor reads this)
   if (waitTimer) { clearTimeout(waitTimer); waitTimer = null; }  // any event = activity resumed; cancel the pending wait-glance
   const tail = await readTranscriptTail(ev.transcript_path);
   if (tail && tail.ctx && !reliefActive) { state.ctxTokens = tail.ctx.tokens; state.ctxWindow = tail.ctx.win; state.ctxPct = Math.round(tail.ctx.pct * 100); setFullness(tail.ctx.pct); }
@@ -248,6 +261,7 @@ async function handleEvent(ev) {
 
 // ---- statusline snapshot -> rich state (the continuous, every-turn feed) ----
 function handleStatus(j) {
+  state.lastEventAt = Date.now();   // the statusline feed is also a live-session signal (doctor reads this)
   const cw = j.context_window || {};
   if (typeof cw.used_percentage === 'number') { state.ctxPct = Math.round(cw.used_percentage); setFullness(cw.used_percentage / 100); }
   if (cw.context_window_size) state.ctxWindow = cw.context_window_size;

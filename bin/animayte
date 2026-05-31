@@ -13,6 +13,7 @@ PORT="${ANIMAYTE_PORT:-4321}"
 PET="${ANIMAYTE_PET:-slime}"            # which pet pack to load (pets/<PET>/) — default slime
 PERSONA="${ANIMAYTE_PERSONALITY:-adaptive}"   # behaviour bias (adaptive|chipper|grumpy) — C3
 DAEMON="$ROOT/animayte.mjs"
+INSTALLER="$ROOT/bin/animayte-install.mjs"
 PET_SWIFT="$ROOT/desktop/AnimaytePet.swift"
 PET_BIN="$ROOT/desktop/.build/AnimaytePet"
 PET_PY="$ROOT/desktop/animayte_pet.py"
@@ -79,10 +80,16 @@ status() {
   daemon_up && echo "daemon: running ● (http://127.0.0.1:$PORT)" || echo "daemon: stopped ○"
 }
 
+# install/uninstall/doctor live in the zero-dep Node helper (JSON-native, testable).
+need_node() { [ -n "$NODE" ] || { echo "animayte: needs Node 18+ for '$1' (not found on PATH)." >&2; exit 1; }; }
+
 case "${1:-start}" in
-  start|"") start ;;
-  stop)     stop ;;
-  restart)  stop; sleep 0.5; start ;;
-  status)   status ;;
-  *) echo "usage: animayte [start|stop|restart|status]" >&2; exit 2 ;;
+  start|"")  start ;;
+  stop)      stop ;;
+  restart)   stop; sleep 0.5; start ;;
+  status)    status ;;
+  install)   need_node install;   ANIMAYTE_PORT="$PORT" "$NODE" "$INSTALLER" install ;;
+  uninstall) need_node uninstall; ANIMAYTE_PORT="$PORT" "$NODE" "$INSTALLER" uninstall ;;
+  doctor)    need_node doctor; status; ANIMAYTE_PORT="$PORT" "$NODE" "$INSTALLER" doctor ;;
+  *) echo "usage: animayte [start|stop|restart|status|install|uninstall|doctor]" >&2; exit 2 ;;
 esac

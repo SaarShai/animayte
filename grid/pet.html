@@ -65,11 +65,15 @@
       case 'endReact': pet.toIdle(); break;
       case 'sleep': pet.sleep(); break;
       case 'say': say(m.text, m.ms); break;
+      // additive: the full FeatureSpec (Route 1 → Route 2). No-op until the grid runtime
+      // exposes applySpec; the legacy 'mood'/'react' cmds keep driving the pet today.
+      case 'express': if (pet.applySpec) pet.applySpec(m.spec); break;
       // 'moodLevel' is intentionally ignored (grid runtime has no mood-drift tint)
     }
   }
 
-  // seed from the daemon's current state, then stream live updates
+  // seed from the daemon's current state for the first paint (the SSE stream resends a full
+  // snapshot on every connect, so this is just a head start, not the source of truth)
   const pill = document.getElementById('pill');
   fetch('/health').then((r) => r.json()).then((h) => {
     const s = (h && h.state) || {};
@@ -79,12 +83,24 @@
     if (s.phase === 'sleeping') pet.sleep();
   }).catch(() => {});
 
-  try {
-    const es = new EventSource('/events');
-    es.onopen = () => { pill.textContent = '● live'; pill.style.color = '#19b36b'; };
-    es.onerror = () => { pill.textContent = '○ waiting…'; pill.style.color = ''; };
+  // SSE with a reconnect supervisor — survives a daemon restart without a stuck pet. The
+  // daemon resends a full snapshot on every (re)connect (clearBirds + phase/fullness/mood),
+  // so the pet resyncs to the live session automatically when the daemon comes back.
+  let es = null, everLive = false, backoff = 1000, timer = 0;
+  const schedule = () => { clearTimeout(timer); timer = setTimeout(open, backoff); backoff = Math.min(backoff * 1.7, 10000); };
+  function open() {
+    clearTimeout(timer);
+    try { es = new EventSource('/events'); } catch (_) { schedule(); return; }
+    es.onopen = () => { everLive = true; backoff = 1000; pill.textContent = '● live'; pill.style.color = '#19b36b'; };
     es.onmessage = (e) => { try { dispatch(JSON.parse(e.data)); } catch (_) {} };
-  } catch (_) {}
+    es.onerror = () => {
+      pill.textContent = everLive ? '… reconnecting' : '○ waiting…';
+      pill.style.color = everLive ? '#e3a008' : '';
+      if (es && es.readyState === 2) { try { es.close(); } catch (_) {} schedule(); }
+    };
+  }
+  open();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && es && es.readyState === 2) open(); });
 
   window.pet = pet; // dev affordance
 </script>

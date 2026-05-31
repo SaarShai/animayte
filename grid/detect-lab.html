@@ -71,16 +71,15 @@
   const ta = document.getElementById('ta');
   const rows = document.getElementById('rows');
 
-  // salience rule mirrored from the daemon (animayte.mjs applySentiment): most-salient
-  // feeling across the recent window (highest priority; recency breaks ties).
+  // salience rule mirrored from the daemon (lib/appraise.mjs → applySentiment): RECENCY-FIRST.
+  // The newest text that carries ANY feeling wins; older lines only matter when the newer
+  // ones are neutral. (Priority no longer breaks ties — recency is the whole rule.)
   function pickSalient(windowNewestFirst) {
-    let best = null;
-    windowNewestFirst.forEach((t, i) => {
-      const r = detectExpression(t); if (!r) return;
-      const recency = windowNewestFirst.length - i;
-      if (!best || r.priority > best.priority || (r.priority === best.priority && recency > best._recency)) best = { ...r, _recency: recency };
-    });
-    return best;
+    for (const t of windowNewestFirst) {
+      const r = detectExpression(t);
+      if (r) return r;
+    }
+    return null;
   }
 
   function draw(id) {

@@ -68,6 +68,11 @@ to the pet, so it reacts as you work.
 /animayte            # summon the pet; it now reacts to this session
 ```
 
+Prefer a clone? `bin/animayte install` wires the hooks **and** statusline into your global
+Claude Code settings (idempotent, reversible, backup-safe) so the pet reacts in *every*
+project; `bin/animayte uninstall` removes them cleanly, and `bin/animayte doctor` diagnoses a
+quiet pet. Full guide + troubleshooting: **[docs/INSTALL.md](docs/INSTALL.md)**.
+
 (Until you restart Claude Code in the folder, run `bin/animayte start` directly.)
 
 ## How a session maps to the pet

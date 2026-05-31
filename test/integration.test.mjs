@@ -91,11 +91,14 @@ try {
     check(`Stop reads agent text "${text.slice(0, 24)}…" → ${want}`, s.mood, want);
   }
 
-  // 4b. neutral-narration-last: emotional line is one BACK, trailing line is neutral.
-  // The daemon scans the last ~4 texts and should still find the feeling.
-  const tBuried = writeTranscript('buried.jsonl', { tokens: 120_000, texts: ['🎉 huge win, it works!', 'Now let me write that to disk and move on'] });
+  // 4b. neutral-narration-last: emotional line is one BACK, trailing line carries NO feeling.
+  // Recency-first (lib/appraise.mjs) walks newest→oldest and takes the first line that carries
+  // a feeling — so a truly neutral trailing line is skipped and the buried win still shows.
+  // (The trailing line must be genuinely neutral: "let me write…" detects as `thinking`, which
+  // would legitimately win by recency — see appraise.test.mjs for the locked contract.)
+  const tBuried = writeTranscript('buried.jsonl', { tokens: 120_000, texts: ['🎉 huge win, it works!', 'The value is written to the buffer.'] });
   s = await event({ hook_event_name: 'Stop', transcript_path: tBuried });
-  check('emotion found even when newest line is neutral', s.mood, 'excited');
+  check('buried feeling found when the newest line is truly neutral', s.mood, 'excited');
 
   // 5. real tool error → sad (bad news, not the agent's own fault)
   s = await event({ hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_response: { is_error: true, stderr: 'boom' } });

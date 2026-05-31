@@ -3,7 +3,9 @@
 #   start (default): bring the floating pet to life (+ event daemon for live reactions)
 #   stop / restart / status
 #
-# Pet renderer preference: native Swift (macOS, best) → Python/Tk (cross-platform) → browser note.
+# Pet renderer: the "Dijon" WebKit host (a native always-on-top window around the live WEB
+# creature — the same approach Codex/hatch pets use: one web renderer, never re-drawn in
+# Swift) → legacy native pixel-sprite → Python/Tk → browser note.
 # The plugin's /animayte command just calls this; the floating window is a separate process
 # (as it must be — no agent lets a plugin draw a free window from inside it).
 
@@ -14,8 +16,10 @@ PET="${ANIMAYTE_PET:-slime}"            # which pet pack to load (pets/<PET>/) �
 PERSONA="${ANIMAYTE_PERSONALITY:-adaptive}"   # behaviour bias (adaptive|chipper|grumpy) — C3
 DAEMON="$ROOT/animayte.mjs"
 INSTALLER="$ROOT/bin/animayte-install.mjs"
-PET_SWIFT="$ROOT/desktop/AnimaytePet.swift"
-PET_BIN="$ROOT/desktop/.build/AnimaytePet"
+PET_SWIFT="$ROOT/desktop/dijon-pet.swift"          # primary: WebKit host → /grid/pet.html (current creature)
+PET_BIN="$ROOT/desktop/.build/dijon-pet"
+PET_SWIFT_SPRITE="$ROOT/desktop/AnimaytePet.swift"  # fallback: the original native pixel-sprite renderer
+PET_BIN_SPRITE="$ROOT/desktop/.build/AnimaytePet"
 PET_PY="$ROOT/desktop/animayte_pet.py"
 LOGDIR="${TMPDIR:-/tmp}"
 
@@ -24,7 +28,7 @@ PY="$(command -v python3 || true)"
 SWIFTC="$(command -v swiftc || true)"
 
 daemon_up() { curl -s -m 1 "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; }
-pet_up() { pgrep -f "AnimaytePet" >/dev/null 2>&1 || pgrep -f "animayte_pet.py" >/dev/null 2>&1; }
+pet_up() { pgrep -f "dijon-pet|AnimaytePet|animayte_pet.py" >/dev/null 2>&1; }
 
 start_daemon() {
   if [ -n "$NODE" ] && ! daemon_up; then
@@ -33,23 +37,32 @@ start_daemon() {
   fi
 }
 
-build_swift() {                                   # returns 0 if a runnable native binary exists
+build_swift() {                                   # $1=source $2=binary ; 0 if a runnable binary exists
   [ "$(uname)" = "Darwin" ] || return 1
   [ -n "$SWIFTC" ] || return 1
-  if [ ! -x "$PET_BIN" ] || [ "$PET_SWIFT" -nt "$PET_BIN" ]; then
+  local src="$1" bin="$2"
+  if [ ! -x "$bin" ] || [ "$src" -nt "$bin" ]; then
     mkdir -p "$ROOT/desktop/.build"
     echo "   (preparing native pet — first run compiles once, ~a few seconds…)"
-    "$SWIFTC" -O "$PET_SWIFT" -o "$PET_BIN" 2>"$LOGDIR/animayte_build.log" || return 1
+    "$SWIFTC" -O "$src" -o "$bin" 2>"$LOGDIR/animayte_build.log" || return 1
   fi
-  [ -x "$PET_BIN" ]
+  [ -x "$bin" ]
 }
 
 launch_pet() {
   if pet_up; then echo "🐣 animayte is already floating on your screen."; return 0; fi
-  if build_swift; then
-    ANIMAYTE_ASSETS="$ROOT/assets" ANIMAYTE_PORT="$PORT" ANIMAYTE_PET="$PET" nohup "$PET_BIN" >"$LOGDIR/animayte_pet.log" 2>&1 &
+  # primary: the Dijon WebKit host — a native window around the live web creature, driven by
+  # the daemon's SSE (the same pet you'd see in the overlay, always-on-top + draggable).
+  if build_swift "$PET_SWIFT" "$PET_BIN"; then
+    ANIMAYTE_PORT="$PORT" nohup "$PET_BIN" >"$LOGDIR/animayte_pet.log" 2>&1 &
+    sleep 0.6
+    pet_up && { echo "🐣 animayte is floating on your screen — drag it anywhere · right-click to dismiss."; return 0; }
+  fi
+  # fallback: the original native pixel-sprite pet
+  if build_swift "$PET_SWIFT_SPRITE" "$PET_BIN_SPRITE"; then
+    ANIMAYTE_ASSETS="$ROOT/assets" ANIMAYTE_PORT="$PORT" ANIMAYTE_PET="$PET" nohup "$PET_BIN_SPRITE" >"$LOGDIR/animayte_pet.log" 2>&1 &
     sleep 0.5
-    pet_up && { echo "🐣 animayte is floating on your screen (native) — drag it anywhere · right-click to dismiss."; return 0; }
+    pet_up && { echo "🐣 animayte is floating on your screen (sprite) — drag it · right-click to dismiss."; return 0; }
   fi
   if [ -n "$PY" ]; then
     ANIMAYTE_PORT="$PORT" ANIMAYTE_PET="$PET" nohup "$PY" "$PET_PY" >"$LOGDIR/animayte_pet.log" 2>&1 &
@@ -69,6 +82,7 @@ start() {
 
 stop() {
   local k=0
+  pkill -f "dijon-pet" 2>/dev/null && k=1
   pkill -f "AnimaytePet" 2>/dev/null && k=1
   pkill -f "animayte_pet.py" 2>/dev/null && k=1
   [ -n "$NODE" ] && pkill -f "animayte.mjs" 2>/dev/null || true

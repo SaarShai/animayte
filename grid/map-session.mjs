@@ -1,29 +1,31 @@
 #!/usr/bin/env node
 /*
- * animayte · map-session — run a REAL session transcript through the detector and print
- * a reviewable map: for each assistant message, what feeling it triggers (+ why) and what
- * the pet would actually show (salience over the last 4 messages, like the daemon).
+ * animayte · map-session — run a REAL session transcript through the detector and emit a
+ * reviewable map: per assistant message, the detected feeling (+ why) and what the pet
+ * would actually show (salience over the last 4 messages, like the daemon).
  *
- *   node grid/map-session.mjs <path-to-transcript.jsonl> [maxMessages]
+ *   node grid/map-session.mjs <transcript.jsonl> [maxMessages]            → markdown (stdout)
+ *   node grid/map-session.mjs <transcript.jsonl> --json grid/maps/x.json  → data for the viewer
  *
- * Assistant-text extraction mirrors animayte.mjs readTranscriptTail() exactly, so the map
- * reflects what the live pet would have felt.
+ * Works across agents: Claude Code (o.message|o, content[].text) and Codex
+ * (o.payload, role assistant, content[].output_text). Extraction mirrors the daemon.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { detectExpression, appleFor } from '../lib/expressions.mjs';
 
-const path = process.argv[2];
-const cap = Number(process.argv[3] || 60);
-if (!path) { console.error('usage: node grid/map-session.mjs <transcript.jsonl> [maxMessages]'); process.exit(2); }
+const args = process.argv.slice(2);
+const path = args[0];
+const jsonIdx = args.indexOf('--json');
+const jsonOut = jsonIdx >= 0 ? args[jsonIdx + 1] : null;
+const cap = Number(args.find((a, i) => i > 0 && /^\d+$/.test(a)) || 80);
+if (!path) { console.error('usage: node grid/map-session.mjs <transcript.jsonl> [max] [--json out.json]'); process.exit(2); }
 
 // ── extract assistant texts, chronological (same shape the daemon reads) ──────
-const lines = readFileSync(path, 'utf8').split('\n');
 const messages = [];
-for (const raw of lines) {
+for (const raw of readFileSync(path, 'utf8').split('\n')) {
   const l = raw.trim(); if (!l) continue;
   let o; try { o = JSON.parse(l); } catch { continue; }
-  // generic across agents: Claude Code (o.message|o, content[].text),
-  // Codex (o.payload, role assistant, content[].output_text). Concatenate text blocks.
   const msg = o.message || o.payload || o;
   const isAssistant = msg && (msg.role === 'assistant' || o.type === 'assistant');
   if (isAssistant && Array.isArray(msg.content)) {
@@ -42,40 +44,46 @@ function pickSalient(windowNewestFirst) {
   });
   return best;
 }
-
-const clip = (s, n) => { const one = s.replace(/\s+/g, ' ').trim(); return (one.length > n ? one.slice(0, n - 1) + '…' : one).replace(/\|/g, '\\|'); };
-
-// for a keyword match, show the surrounding context so a false trigger is obvious
-function why(text, det) {
-  if (!det) return '*(no emotion)*';
-  if (!det.reason.startsWith('kw:')) return det.reason;          // emoji match: self-explanatory
+const oneLine = (s) => s.replace(/\s+/g, ' ').trim();
+function whyText(text, det) {
+  if (!det) return 'no emotion';
+  if (!det.reason.startsWith('kw:')) return det.reason;
   const kw = det.reason.slice(3);
   const m = new RegExp('\\b' + kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').exec(text);
   if (!m) return det.reason;
-  const ctx = text.slice(Math.max(0, m.index - 16), m.index + kw.length + 16).replace(/\s+/g, ' ').trim();
-  return `\`${kw}\` ⟨…${clip(ctx, 40)}…⟩`;
+  const ctx = oneLine(text.slice(Math.max(0, m.index - 16), m.index + kw.length + 16));
+  return `"${kw}" …${ctx}…`;
 }
 
-// ── print a markdown table + a feeling timeline ───────────────────────────────
-console.log(`\nSession: ${path.split('/').slice(-1)[0]}  ·  ${messages.length} assistant messages (showing ${Math.min(cap, messages.length)})\n`);
-console.log('| # | what the agent said | detected | why | pet shows |');
-console.log('|---|---|---|---|---|');
-const timeline = [];
-let prevPick = null;
+// ── build the row data ─────────────────────────────────────────────────────────
+const rows = []; const timeline = []; const dist = {}; let prev = null;
 messages.slice(0, cap).forEach((text, i) => {
   const det = detectExpression(text);
   const win = messages.slice(0, i + 1).slice(-4).reverse();
   const sal = pickSalient(win);
   const pick = sal ? sal.id : 'neutral';
-  const changed = pick !== prevPick; prevPick = pick;
+  const changed = pick !== prev; prev = pick;
   timeline.push(pick);
-  const detLabel = det ? `${det.id} ${appleFor(det.id)}` : '—';
-  const showLabel = `${changed ? '**' : ''}${pick} ${appleFor(pick)}${changed ? '**' : ''}`;
-  console.log(`| ${i + 1} | ${clip(text, 78)} | ${detLabel} | ${why(text, det)} | ${showLabel} |`);
+  const k = det ? det.id : '(none)'; dist[k] = (dist[k] || 0) + 1;
+  rows.push({ n: i + 1, text: oneLine(text).slice(0, 200), detId: det ? det.id : null, detApple: det ? appleFor(det.id) : '', why: whyText(text, det), pick, pickApple: appleFor(pick), changed });
 });
 
-// distribution + timeline
-const dist = {};
-messages.slice(0, cap).forEach((t) => { const r = detectExpression(t); const k = r ? r.id : '(none)'; dist[k] = (dist[k] || 0) + 1; });
-console.log(`\n**detected distribution:** ${Object.entries(dist).map(([k, v]) => `${k} ${v}`).join(' · ')}`);
-console.log(`**pet-shows timeline:** ${timeline.join(' → ')}\n`);
+const data = { name: path.split('/').slice(-1)[0], count: messages.length, shown: rows.length, rows, dist, timeline };
+
+// ── output ───────────────────────────────────────────────────────────────────
+if (jsonOut) {
+  mkdirSync(dirname(jsonOut), { recursive: true });
+  writeFileSync(jsonOut, JSON.stringify(data, null, 0));
+  console.log(`wrote ${jsonOut}  (${rows.length} rows)`);
+} else {
+  console.log(`\nSession: ${data.name}  ·  ${data.count} assistant messages (showing ${rows.length})\n`);
+  console.log('| # | what the agent said | detected | why | pet shows |');
+  console.log('|---|---|---|---|---|');
+  for (const r of rows) {
+    const det = r.detId ? `${r.detId} ${r.detApple}` : '—';
+    const show = `${r.changed ? '**' : ''}${r.pick} ${r.pickApple}${r.changed ? '**' : ''}`;
+    console.log(`| ${r.n} | ${r.text.slice(0, 78).replace(/\|/g, '\\|')} | ${det} | ${r.why.replace(/\|/g, '\\|')} | ${show} |`);
+  }
+  console.log(`\n**detected:** ${Object.entries(dist).map(([k, v]) => `${k} ${v}`).join(' · ')}`);
+  console.log(`**timeline:** ${timeline.join(' → ')}\n`);
+}

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>animayte · session map</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; padding: 28px 24px 60px;
+    background: radial-gradient(1200px 700px at 50% -10%, #1b2440, #0a0e1a 70%);
+    font: 13px/1.5 ui-monospace, "SF Mono", Menlo, monospace; color: #aeb6c8; }
+  h1 { font-size: 14px; letter-spacing: .12em; text-transform: uppercase; color: #6f7a93; font-weight: 600; text-align: center; margin: 0 0 4px; }
+  .meta { text-align: center; color: #59617a; font-size: 12px; margin-bottom: 8px; }
+  .tabs { text-align: center; margin-bottom: 18px; }
+  .tabs a { color: #cdd5e6; text-decoration: none; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 6px 12px; margin: 0 4px; }
+  .tabs a.on { background: rgba(230,168,23,.2); border-color: #e6a817; color: #fff; }
+  .timeline { text-align: center; color: #8893aa; font-size: 11.5px; margin: 0 auto 20px; max-width: 1000px; word-spacing: 2px; }
+  table { width: 100%; max-width: 1040px; margin: 0 auto; border-collapse: collapse; }
+  th { text-align: left; color: #59617a; font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,.1); }
+  td { padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,.05); vertical-align: middle; }
+  td.n { color: #4d556b; text-align: right; width: 28px; }
+  td.text { color: #cbd3e4; max-width: 460px; }
+  td.det { color: #8893aa; white-space: nowrap; }
+  td.why { color: #6b7488; font-size: 11px; max-width: 230px; }
+  td.show { white-space: nowrap; }
+  tr.changed td.show { color: #e6a817; font-weight: 600; }
+  tr.neg { background: rgba(216,58,42,.06); }
+  canvas { image-rendering: pixelated; display: block; }
+</style>
+</head>
+<body>
+  <h1>animayte · session map</h1>
+  <div class="tabs">
+    <a id="tab-claude" href="?s=claude">Claude (animayte session)</a>
+    <a id="tab-codex" href="?s=codex">Codex / GPT (drive-debug session)</a>
+  </div>
+  <div class="meta" id="meta"></div>
+  <div class="timeline" id="timeline"></div>
+  <table><thead><tr><th></th><th>#</th><th>what the agent said</th><th>detected</th><th>why (trigger)</th><th>pet shows</th></tr></thead>
+    <tbody id="rows"></tbody></table>
+
+<script type="module">
+  import { render, sizeCanvas } from '/grid/engine.mjs';
+  import { GRID, PALETTE, compose } from '/grid/creature.mjs';
+  import { byId } from '/lib/expressions.mjs';
+
+  const which = new URLSearchParams(location.search).get('s') || 'codex';
+  document.getElementById('tab-' + which)?.classList.add('on');
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+
+  const data = await fetch(`/grid/maps/${which}.json`).then((r) => r.json()).catch(() => null);
+  if (!data) { document.getElementById('meta').textContent = 'no map data — run: node grid/map-session.mjs <transcript> --json grid/maps/' + which + '.json'; }
+  else {
+    document.getElementById('meta').textContent = `${data.name} · ${data.count} assistant messages · detected: ${Object.entries(data.dist).map(([k, v]) => k + ' ' + v).join('  ')}`;
+    document.getElementById('timeline').textContent = 'pet-shows timeline:  ' + data.timeline.join('  →  ');
+    const rows = document.getElementById('rows');
+    for (const r of data.rows) {
+      const tr = document.createElement('tr');
+      if (['sad', 'oops', 'embarrassed'].includes(r.pick)) tr.className = 'neg';
+      if (r.changed) tr.classList.add('changed');
+      const cvId = 'c' + r.n;
+      tr.innerHTML =
+        `<td><canvas id="${cvId}" title="${r.pick}"></canvas></td>` +
+        `<td class="n">${r.n}</td>` +
+        `<td class="text">${r.text.replace(/</g, '&lt;').slice(0, 150)}</td>` +
+        `<td class="det">${r.detId ? r.detId + ' ' + r.detApple : '<span style=color:#4d556b>—</span>'}</td>` +
+        `<td class="why">${r.why.replace(/</g, '&lt;')}</td>` +
+        `<td class="show">${r.pick} ${r.pickApple}</td>`;
+      rows.appendChild(tr);
+      const ctx = sizeCanvas(document.getElementById(cvId), GRID.w, GRID.h, 1.4, dpr);
+      const face = (byId(r.pick) && byId(r.pick).face) || {};
+      render(ctx, compose(face, {}), PALETTE, { gridW: GRID.w, gridH: GRID.h, cell: 1.4 });
+    }
+  }
+</script>
+</body>
+</html>

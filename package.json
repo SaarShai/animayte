@@ -9,11 +9,14 @@
     "start": "node animayte.mjs",
     "open": "open http://127.0.0.1:4321",
     "test": "node test/run.mjs",
+    "stress": "node test/stress.test.mjs",
+    "sim:session": "node tools/sim-session.mjs",
     "assets": "node tools/make-assets.mjs",
     "sounds": "node tools/make-sounds.mjs",
     "preview": "node tools/preview.mjs",
     "simulate": "node tools/simulate.mjs",
     "rive:export": "node tools/rive-export.mjs",
+    "codex:fixture": "node tools/make-codex-fixture.mjs",
     "conformance:update": "node test/conformance.mjs --update"
   },
   "engines": { "node": ">=18" }

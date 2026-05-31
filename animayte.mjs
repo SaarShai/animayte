@@ -83,7 +83,12 @@ function applyMoodDrift(moodId) {
   state.moodLabel = moodMeter.label;
   if (state.moodLabel !== before) broadcast({ cmd: 'moodLevel', value: state.moodLevel, label: state.moodLabel });
 }
-const setFullness = (v) => { state.fullness = Math.max(0, Math.min(1, v)); state.updated = Date.now(); broadcast({ cmd: 'fullness', value: state.fullness }); };
+const setFullness = (v) => {
+  const nv = Math.max(0, Math.min(1, v));
+  const changed = Math.abs(nv - state.fullness) >= 0.004;   // skip broadcasting imperceptible/no-op changes
+  state.fullness = nv; state.updated = Date.now();
+  if (changed) broadcast({ cmd: 'fullness', value: nv });
+};
 
 // /compact relief: bump reliefSeq (pets play steam-from-ears), then deflate the head over ~1.8s.
 // While relieving, transcript-fullness updates are skipped so the deflation reads cleanly.
@@ -160,7 +165,7 @@ async function readTranscriptTail(path) {
 }
 
 function isErrorResponse(ev) {
-  const r = ev.tool_response ?? ev.toolResponse ?? ev.response ?? ev.tool_output;
+  const r = ev.tool_response;
   if (!r) return false;
   if (typeof r === 'string') return /error|failed|exception|traceback|denied|not found/i.test(r);
   if (typeof r === 'object') {
@@ -199,20 +204,44 @@ function applySentiment(recentTexts, ms = 3000) {
   return applySpec(appraise({ recentTexts }, { valence: lastValence }), ms);
 }
 
+// De-dup: a hook can be registered in two places (project settings AND the plugin) and we
+// MEASURED Claude Code delivering the same event twice (its command-string dedup doesn't span
+// plugin↔settings here). Tool events carry a unique `tool_use_id`, so we drop a repeat of the
+// same (event, tool_use_id) — precise, version-tolerant, and it never touches events without an
+// id, so legitimate repeats (e.g. two SubagentStops) are unaffected.
+const seenTool = new Map();
+function isDuplicateTool(name, ev) {
+  if (name !== 'PreToolUse' && name !== 'PostToolUse') return false;
+  const id = ev.tool_use_id;
+  if (!id) return false;
+  const key = name + ':' + id;
+  const now = Date.now();
+  if (seenTool.size > 256) for (const [k, t] of seenTool) if (now - t > 30000) seenTool.delete(k);
+  if (seenTool.has(key)) return true;
+  seenTool.set(key, now);
+  return false;
+}
+
 // ---- hook event -> pet behavior (+ real context + sentiment from agent text) ----
 async function handleEvent(ev) {
-  const name = ev.hook_event_name || ev.event || ev.hookEventName || '';
+  const name = ev.hook_event_name || '';
   state.lastEventAt = Date.now();   // a real hook arrived → a live session is driving us (doctor reads this)
+  if (isDuplicateTool(name, ev)) return;  // drop a double-delivered tool event
   if (waitTimer) { clearTimeout(waitTimer); waitTimer = null; }  // any event = activity resumed; cancel the pending wait-glance
-  const tail = await readTranscriptTail(ev.transcript_path);
-  if (tail && tail.ctx && !reliefActive) { state.ctxTokens = tail.ctx.tokens; state.ctxWindow = tail.ctx.win; state.ctxPct = Math.round(tail.ctx.pct * 100); setFullness(tail.ctx.pct); }
+  // Only the text/context events read the transcript — keeps PreToolUse and other high-frequency
+  // events I/O-free (context only changes on assistant messages, which these two reflect).
+  let tail = null;
+  if (name === 'PostToolUse' || name === 'Stop') {
+    tail = await readTranscriptTail(ev.transcript_path);
+    if (tail && tail.ctx && !reliefActive) { state.ctxTokens = tail.ctx.tokens; state.ctxWindow = tail.ctx.win; state.ctxPct = Math.round(tail.ctx.pct * 100); setFullness(tail.ctx.pct); }
+  }
 
   switch (name) {
     case 'SessionStart':     if (ev.model) state.model = ev.model; freshStart(); setMood('happy', 2500); say('👋 hi! a new session'); break;
     case 'UserPromptSubmit': {
       hatch();
       // react to HOW the user spoke to the pet — praise makes it proud, a correction sheepish
-      const spec = appraise({ userText: ev.prompt || ev.user_prompt || ev.message || '' }, { valence: lastValence });
+      const spec = appraise({ userText: ev.prompt || '' }, { valence: lastValence });
       if (spec && spec.cause === 'user') {
         applySpec(spec, 3200);
         if (spec.valence > 0) say(spec.expression === 'excited' ? '🤩 aw — thank you!' : '😊 aw, thanks!');
@@ -221,13 +250,13 @@ async function handleEvent(ev) {
       break;
     }
     case 'PreToolUse': {
-      const tool = ev.tool_name || ev.toolName || '';
+      const tool = ev.tool_name || '';
       if (tool === 'Task' || tool === 'Agent') {
         const d = (ev.tool_input && (ev.tool_input.description || ev.tool_input.subagent_type)) || 'helper';
         addBird(String(d).slice(0, 22));
         say('🐦 spawned a helper: ' + String(d).slice(0, 22));
       } else {
-        const gag = classifyTool(tool, ev.tool_input || ev.toolInput);
+        const gag = classifyTool(tool, ev.tool_input);
         state.activeTool = gag ? gag.category : null;
         setMood('thinking');                              // legacy renderers (mood-only) still react
         if (gag) broadcast({ cmd: 'react', name: gag.event });  // rich runtime plays the tool gag
@@ -242,7 +271,6 @@ async function handleEvent(ev) {
       if (isErrorResponse(ev)) { applySpec(appraise({ isError: true }, { valence: lastValence }), 2200); say('😟 hit a snag, recovering…'); }
       else if (!applySentiment(tail && tail.recentTexts)) setMood('thinking');
       break;
-    case 'PostToolUseFailure': setMood('sad', 2400); say('😟 that didn’t work — trying again'); break;
     case 'SubagentStop': removeBird(); if (state.birds.length === 0) setMood('happy', 1600); break;
     case 'Notification': {
       const msg = String(ev.message || '');
@@ -370,7 +398,7 @@ const server = http.createServer(async (req, res) => {
     });
     return;
   }
-  if (url.pathname === '/health') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, owner: ownerSession, state })); return; }
+  if (url.pathname === '/health') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, owner: ownerSession, clients: clients.size, rss: process.memoryUsage().rss, state })); return; }
 
   // expression tester — run the REAL detector on arbitrary text and report the result
   if (url.pathname === '/detect') {

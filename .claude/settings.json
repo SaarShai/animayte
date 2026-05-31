@@ -1,19 +1,8 @@
 {
-  "_comment": "animayte — forwards this folder's Claude Code session events + statusline JSON to the local pet daemon (animayte.mjs on :4321). Harmless when the daemon is off. Restart Claude Code in this folder for hooks/statusline to (re)load.",
+  "_comment": "animayte — DEV settings for working INSIDE this repo. The statusline forwards this folder's session JSON to the local pet daemon (animayte.mjs on :4321). Hooks are intentionally NOT duplicated here: the animayte plugin (.claude-plugin → hooks/hooks.json) is the SINGLE source of the forwarding hooks, so events are never delivered twice. To get the hooks while developing, enable the animayte plugin or run `bin/animayte install`. Restart Claude Code in this folder for changes to (re)load.",
   "statusLine": {
     "type": "command",
     "command": "node \"$CLAUDE_PROJECT_DIR/bin/animayte-statusline.mjs\"",
     "padding": 0
-  },
-  "hooks": {
-    "SessionStart":     [{ "hooks": [{ "type": "command", "command": "curl -s -m 0.4 -X POST http://127.0.0.1:4321/event -H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }],
-    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "curl -s -m 0.4 -X POST http://127.0.0.1:4321/event -H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }],
-    "PreToolUse":       [{ "matcher": "*", "hooks": [{ "type": "command", "command": "curl -s -m 0.4 -X POST http://127.0.0.1:4321/event -H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }],
-    "PostToolUse":      [{ "matcher": "*", "hooks": [{ "type": "command", "command": "curl -s -m 0.4 -X POST http://127.0.0.1:4321/event -H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }],
-    "SubagentStop":     [{ "hooks": [{ "type": "command", "command": "curl -s -m 0.4 -X POST http://127.0.0.1:4321/event -H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }],
-    "Notification":     [{ "hooks": [{ "type": "command", "command": "curl -s -m 0.4 -X POST http://127.0.0.1:4321/event -H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }],
-    "Stop":             [{ "hooks": [{ "type": "command", "command": "curl -s -m 0.4 -X POST http://127.0.0.1:4321/event -H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }],
-    "PreCompact":       [{ "hooks": [{ "type": "command", "command": "curl -s -m 0.4 -X POST http://127.0.0.1:4321/event -H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }],
-    "SessionEnd":       [{ "hooks": [{ "type": "command", "command": "curl -s -m 0.4 -X POST http://127.0.0.1:4321/event -H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }]
   }
 }

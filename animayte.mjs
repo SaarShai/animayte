@@ -16,7 +16,8 @@ import http from 'node:http';
 import { readFile, open, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, extname } from 'node:path';
-import { detectMood, detectUserTone, emojiReaction } from './lib/sentiment.mjs';
+import { detectMood } from './lib/sentiment.mjs';           // still used by the /detect endpoint
+import { appraise } from './lib/appraise.mjs';              // Route 1: signal → FeatureSpec (the translation layer)
 import { classifyTool } from './lib/anim/events.mjs';
 import { createMoodMeter } from './lib/anim/mood.mjs';
 import { loadConfig } from './lib/anim/config.mjs';
@@ -151,29 +152,30 @@ function isErrorResponse(ev) {
   return false;
 }
 
-// Apply sentiment from the agent's own recent words. RECENCY-FIRST: the most recent
-// assistant text that carries a feeling wins, so the pet follows the current mood and
-// recovers the instant a fix lands. Priority only arbitrates WITHIN one message (a
-// negative is never hidden by a co-occurring smile on the same line). We still look back
-// up to a few texts so emotionless narration ("let me…") falls back to the last real
-// feeling rather than snapping to neutral.
-function applySentiment(recentTexts, ms = 3000) {
-  const texts = (Array.isArray(recentTexts) ? recentTexts : [recentTexts]).filter(Boolean);
-  let best = null, bestText = null;
-  for (const t of texts) {                           // newest-first; first feeling wins
-    const s = detectMood(t);
-    if (s) { best = s; bestText = t; break; }
-  }
-  if (!best) return false;
-  const key = best.mood + '|' + bestText.slice(0, 40);
+// Translation now lives in lib/appraise.mjs (Route 1). The daemon is transport (Route 3):
+// it builds a SIGNAL, calls appraise() → a FeatureSpec, and broadcasts it. RECENCY-FIRST
+// text selection + cause/intensity/expectedness all happen inside appraise().
+let lastValence = 0;
+// abstract item (prop) → the current renderer's reaction that carries it (transitional
+// bridge; Route 2's spec-aware renderer will consume spec.item directly and retire this).
+const REACTION_FOR_ITEM = { hammer: 'Writing', terminal: 'Running', magnifier: 'Searching', globe: 'Fetching', lightbulb: 'Planning' };
+
+function applySpec(spec, ms = 3000) {
+  if (!spec) return false;
+  const key = spec.expression + '|' + String(spec._text || spec.reason).slice(0, 40);
   if (key === lastSentimentText) return true;        // already reacted to this exact feeling
   lastSentimentText = key;
-  state.sentiment = best.mood; state.sentimentEmoji = best.emoji;
-  setMood(best.mood, ms);
-  // if the agent typed an activity-emoji (🔧 🔬 🌐 💡 …), also put the matching item in hand
-  const react = best.emoji && emojiReaction(best.emoji);
-  if (react) broadcast({ cmd: 'react', name: react });
+  lastValence = spec.valence;
+  state.sentiment = spec.expression;
+  setMood(spec.expression, ms);                      // legacy mood cmd — current renderers react
+  if (spec.item && REACTION_FOR_ITEM[spec.item]) broadcast({ cmd: 'react', name: REACTION_FOR_ITEM[spec.item] });
+  const { _text, ...clean } = spec;
+  broadcast({ cmd: 'express', spec: clean });        // NEW: the full FeatureSpec for spec-aware renderers (additive)
   return true;
+}
+// agent's own recent words → a FeatureSpec (recency-first inside appraise)
+function applySentiment(recentTexts, ms = 3000) {
+  return applySpec(appraise({ recentTexts }, { valence: lastValence }), ms);
 }
 
 // ---- hook event -> pet behavior (+ real context + sentiment from agent text) ----
@@ -188,10 +190,12 @@ async function handleEvent(ev) {
     case 'UserPromptSubmit': {
       hatch();
       // react to HOW the user spoke to the pet — praise makes it proud, a correction sheepish
-      const tone = detectUserTone(ev.prompt || ev.user_prompt || ev.message || '');
-      if (tone && tone.tone === 'praise') { setMood(tone.mood, 3200); say(tone.mood === 'excited' ? '🤩 aw — thank you!' : '😊 aw, thanks!'); }
-      else if (tone && tone.tone === 'scold') { setMood(tone.mood, 3200); say(tone.mood === 'embarrassed' ? '🙈 sorry — let me fix that' : '😅 my bad — on it'); }
-      else { setMood('thinking'); say('👀 reading your request…'); }
+      const spec = appraise({ userText: ev.prompt || ev.user_prompt || ev.message || '' }, { valence: lastValence });
+      if (spec && spec.cause === 'user') {
+        applySpec(spec, 3200);
+        if (spec.valence > 0) say(spec.expression === 'excited' ? '🤩 aw — thank you!' : '😊 aw, thanks!');
+        else say(spec.expression === 'embarrassed' ? '🙈 sorry — let me fix that' : '😅 my bad — on it');
+      } else { setMood('thinking'); say('👀 reading your request…'); }
       break;
     }
     case 'PreToolUse': {
@@ -211,8 +215,9 @@ async function handleEvent(ev) {
     case 'PostToolUse':
       state.activeTool = null;
       broadcast({ cmd: 'endReact' });                     // tool finished → rich runtime returns to idle
-      // a tool error = BAD NEWS (😟 sad), not the agent's own fault (😅 oops, via sentiment)
-      if (isErrorResponse(ev)) { setMood('sad', 2200); say('😟 hit a snag, recovering…'); }
+      // a tool error = BAD NEWS, cause=external (appraise composes the red wince), not the
+      // agent's own fault (that comes through as oops/embarrassed via the text path)
+      if (isErrorResponse(ev)) { applySpec(appraise({ isError: true }, { valence: lastValence }), 2200); say('😟 hit a snag, recovering…'); }
       else if (!applySentiment(tail && tail.recentTexts)) setMood('thinking');
       break;
     case 'PostToolUseFailure': setMood('sad', 2400); say('😟 that didn’t work — trying again'); break;

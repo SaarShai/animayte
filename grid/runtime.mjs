@@ -28,7 +28,8 @@ const rgbHex = (rgb) => '#' + rgb.map(to2).join('');
 // scaling with fullness; the base stays yellow. Sampled per cell → pixelated by design.
 const YELLOW = [230, 168, 23], ORANGE = [233, 126, 42], RED = [212, 52, 40];
 function heatColor(p, fullness) {
-  const heat = clamp(fullness * 1.2 * (1 - p), 0, 1); // p: 0 top … 1 bottom
+  const f = clamp((fullness - 0.2) / 0.8, 0, 1);      // stay pure yellow until 20% full
+  const heat = clamp(f * 1.2 * (1 - p), 0, 1);         // p: 0 top … 1 bottom
   return heat < 0.5 ? mix(YELLOW, ORANGE, heat / 0.5) : mix(ORANGE, RED, (heat - 0.5) / 0.5);
 }
 

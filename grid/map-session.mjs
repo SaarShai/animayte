@@ -34,15 +34,14 @@ for (const raw of readFileSync(path, 'utf8').split('\n')) {
   }
 }
 
-// salience rule mirrored from animayte.mjs applySentiment (most-salient over last 4)
+// salience rule mirrored from animayte.mjs applySentiment (RECENCY-FIRST: the newest
+// text carrying a feeling wins; priority arbitrates only within a single text)
 function pickSalient(windowNewestFirst) {
-  let best = null;
-  windowNewestFirst.forEach((t, i) => {
-    const r = detectExpression(t); if (!r) return;
-    const recency = windowNewestFirst.length - i;
-    if (!best || r.priority > best.priority || (r.priority === best.priority && recency > best._recency)) best = { ...r, _recency: recency };
-  });
-  return best;
+  for (const t of windowNewestFirst) {
+    const r = detectExpression(t);
+    if (r) return r;
+  }
+  return null;
 }
 const oneLine = (s) => s.replace(/\s+/g, ' ').trim();
 function whyText(text, det) {

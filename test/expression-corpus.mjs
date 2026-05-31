@@ -17,16 +17,16 @@ export const EMOJI_CASES = [
   ['🤔', 'thinking'], ['🧐', 'thinking'], ['🔍', 'thinking'], ['👀', 'thinking'], ['💭', 'thinking'],
   ['😅', 'oops'], ['😬', 'oops'], ['🤭', 'oops'],
   ['😳', 'embarrassed'], ['🫣', 'embarrassed'], ['🙈', 'embarrassed'],
-  ['😟', 'sad'], ['🙁', 'sad'], ['❌', 'sad'], ['😢', 'sad'], ['🐛', 'sad'],
+  ['😟', 'sad'], ['🙁', 'sad'], ['❌', 'sad'], ['😢', 'sad'], ['🐛', 'sad'], ['⚠️', 'sad'],
   ['😴', 'sleepy'], ['💤', 'sleepy'], ['🥱', 'sleepy'],
   ['🙂', 'neutral'], ['😐', 'neutral'], ['😶', 'neutral'],
 ];
 
 // ── KNOWN GAPS: real misfires the suite surfaced — printed for review, not asserted,
 // until we decide the fix together. (Editing these to settled cases = "we fixed it".)
-export const KNOWN_GAPS = [
-  ['⚠️', 'sad', 'now: happy — emoji with a variation-selector (U+FE0F) drop to the "happy" default; any non-happy VS emoji (⚠️ ✔️ ❤️) misfires. 1-line fix in lib/expressions.mjs.'],
-];
+// FIXED 2026-05-31: the VS-emoji misfire (⚠️ ✔️ ❤️ → happy default) is resolved — the
+// matcher now compares VS/ZWJ-stripped on both sides; ⚠️ → sad is a settled emoji case.
+export const KNOWN_GAPS = [];
 
 // ── SETTLED: keyword phrases (no emoji) → expected feeling ─────────────────────
 export const KEYWORD_CASES = [
@@ -70,9 +70,10 @@ export const NULL_CASES = [
 ];
 
 // ── SESSIONS: realistic transcripts (chronological assistant utterances).
-// The test replays each through the daemon's salience rule (most-salient over the last
-// 4 texts; recency breaks ties) and checks the feeling timeline. `expect` is the feeling
-// after each utterance; null means "no emotion → leave as-is". ⟂ = flagged for review.
+// The test replays each through the daemon's salience rule (RECENCY-FIRST: the newest
+// text carrying a feeling wins; priority arbitrates only within one text) and checks the
+// feeling timeline. `expect` is the feeling after each utterance; null means "no emotion →
+// leave as-is". ⟂ = flagged for review (none currently — the agenda is cleared).
 export const SESSIONS = [
   {
     name: 'happy path (look → read → pass → celebrate)',
@@ -89,23 +90,27 @@ export const SESSIONS = [
       ['Let me run the build.', 'thinking'],
       ['The build failed with an error. 😟', 'sad'],
       ['Ah, my mistake — I had a typo.', 'oops'],
-      // ⟂ REVIEW: after the fix, does the pet brighten to happy, or does the
-      // higher-priority "oops" still dominate the recent-text window?
-      ['Fixed it, tests pass now. ✅', 'oops', '⟂ review: should this be happy (recovery) instead?'],
+      // RECENCY-FIRST: the recovery line carries its own happy (✅ + "tests pass"), and it's
+      // the newest, so the pet brightens immediately instead of the stale "oops" lingering.
+      ['Fixed it, tests pass now. ✅', 'happy'],
     ],
   },
   {
-    name: 'deep work → big win (watch a stale "failing" poison the window)',
+    name: 'deep work → big win (recency-first lets the win land)',
     turns: [
-      ['Investigating the failing case.', 'sad', '⟂ "failing" reads sad, though this is neutral investigation'],
-      ['Let me check the other module.', 'thinking', '⟂ stays sad — the prior "failing" still dominates the 4-text window'],
-      ['Found it — this is the fix. 🚀', 'excited', '⟂ even 🚀 is suppressed: sad(5) outranks excited(4) while "failing" lingers in-window'],
+      // "the failing case" is a real negative (it IS broken), so sad is correct — not neutral.
+      ['Investigating the failing case.', 'sad'],
+      // recency-first: this newest line is its own "thinking", so the prior "failing" no longer lingers.
+      ['Let me check the other module.', 'thinking'],
+      // and the 🚀 win now shows immediately instead of being suppressed by a stale sad.
+      ['Found it — this is the fix. 🚀', 'excited'],
     ],
   },
   {
     name: 'winding down',
     turns: [
-      ['Wrapping up the last change.', null, '⟂ review: no feeling detected (expected?)'],
+      // calm narration with no feeling word → stay as-is; the explicit "context full" line below carries it.
+      ['Wrapping up the last change.', null],
       ['Context is getting full.', 'sleepy'],
     ],
   },

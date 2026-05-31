@@ -150,21 +150,19 @@ function isErrorResponse(ev) {
   return false;
 }
 
-// Apply sentiment from the agent's own recent words. Scans the last few assistant
-// texts and picks the MOST SALIENT emotion among them (by dictionary priority),
-// with recency as the tiebreaker — so a strong "🎉 win" two lines back still beats
-// a weak "let me…" on the newest (often neutral) narration line.
+// Apply sentiment from the agent's own recent words. RECENCY-FIRST: the most recent
+// assistant text that carries a feeling wins, so the pet follows the current mood and
+// recovers the instant a fix lands. Priority only arbitrates WITHIN one message (a
+// negative is never hidden by a co-occurring smile on the same line). We still look back
+// up to a few texts so emotionless narration ("let me…") falls back to the last real
+// feeling rather than snapping to neutral.
 function applySentiment(recentTexts, ms = 3000) {
   const texts = (Array.isArray(recentTexts) ? recentTexts : [recentTexts]).filter(Boolean);
   let best = null, bestText = null;
-  texts.forEach((t, i) => {                          // i=0 is newest
+  for (const t of texts) {                           // newest-first; first feeling wins
     const s = detectMood(t);
-    if (!s) return;
-    const recency = texts.length - i;                // newer → higher
-    if (!best || s.priority > best.priority || (s.priority === best.priority && recency > best._recency)) {
-      best = { ...s, _recency: recency }; bestText = t;
-    }
-  });
+    if (s) { best = s; bestText = t; break; }
+  }
   if (!best) return false;
   const key = best.mood + '|' + bestText.slice(0, 40);
   if (key === lastSentimentText) return true;        // already reacted to this exact feeling

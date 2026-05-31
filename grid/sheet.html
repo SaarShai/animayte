@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>animayte · Dijon expression sheet</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; padding: 32px 24px 56px;
+    background: radial-gradient(1200px 700px at 50% -10%, #1b2440, #0a0e1a 70%);
+    font: 13px/1.4 ui-monospace, "SF Mono", Menlo, monospace; color: #aeb6c8; }
+  h1 { font-size: 14px; letter-spacing: .14em; text-transform: uppercase; color: #6f7a93; font-weight: 600; text-align: center; margin: 0 0 6px; }
+  .sub { text-align: center; color: #59617a; font-size: 12px; margin-bottom: 26px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 18px; max-width: 1100px; margin: 0 auto; }
+  .card { background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.06); border-radius: 14px; padding: 14px 14px 12px; text-align: center; }
+  .card.prop { border-color: rgba(230,168,23,.2); }
+  canvas { image-rendering: pixelated; display: block; margin: 0 auto 8px; }
+  .name { color: #e6a817; font-size: 14px; letter-spacing: .04em; }
+  .meaning { color: #7c869c; font-size: 11px; margin: 3px 0 7px; min-height: 26px; }
+  .spec { color: #4d556b; font-size: 10.5px; line-height: 1.5; }
+  .spec b { color: #8893aa; font-weight: 600; }
+</style>
+</head>
+<body>
+  <h1>Dijon · expression sheet</h1>
+  <div class="sub">all 8 feelings (from lib/expressions.mjs) + the two props — annotate what reads wrong</div>
+  <div class="grid" id="grid"></div>
+
+<script type="module">
+  import { render, sizeCanvas } from '/grid/engine.mjs';
+  import { GRID, PALETTE, compose } from '/grid/creature.mjs';
+  import { EXPRESSIONS } from '/lib/expressions.mjs';
+
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const CELL = 7;
+  const grid = document.getElementById('grid');
+
+  function specText(f) {
+    const parts = [];
+    parts.push(`<b>eyes</b> ${f.eyes || 'dots'}`);
+    if (f.brows) parts.push(`<b>brows</b> ${f.brows}`);
+    parts.push(`<b>'stache</b> ${f.mouth || 'neutral'}`);
+    const acc = ['blush', 'flush', 'sweat', 'zzz'].filter((k) => f[k]);
+    if (acc.length) parts.push(`<b>accent</b> ${acc.join(', ')}`);
+    return parts.join(' · ');
+  }
+
+  function card({ name, meaning, spec, faceSpec, props, isProp }) {
+    const el = document.createElement('div');
+    el.className = 'card' + (isProp ? ' prop' : '');
+    const cv = document.createElement('canvas');
+    el.appendChild(cv);
+    const label = document.createElement('div'); label.className = 'name'; label.textContent = name; el.appendChild(label);
+    const mean = document.createElement('div'); mean.className = 'meaning'; mean.textContent = meaning || ''; el.appendChild(mean);
+    const sp = document.createElement('div'); sp.className = 'spec'; sp.innerHTML = spec || ''; el.appendChild(sp);
+    grid.appendChild(el);
+    const ctx = sizeCanvas(cv, GRID.w, GRID.h, CELL, dpr);
+    const cells = compose(faceSpec || {}, { props: props || [] });
+    render(ctx, cells, PALETTE, { gridW: GRID.w, gridH: GRID.h, cell: CELL });
+  }
+
+  // the 8 feelings, in dictionary priority order shown calm
+  for (const ex of EXPRESSIONS) {
+    card({ name: `${ex.id} ${ex.apple}`, meaning: ex.meaning, spec: specText(ex.face), faceSpec: ex.face });
+  }
+  // the two props (drawn over a neutral face)
+  card({ name: 'prop · idea 💡', meaning: 'lightbulb above the head', spec: '<b>over</b> neutral', faceSpec: { eyes: 'dots', mouth: 'slight_smile' }, props: ['lightbulb'], isProp: true });
+  card({ name: 'prop · working 🔨', meaning: 'hammer at his side (tool in use)', spec: '<b>over</b> thinking', faceSpec: { eyes: 'look_up', brows: 'one_raised', mouth: 'flat_skew' }, props: ['hammer'], isProp: true });
+</script>
+</body>
+</html>

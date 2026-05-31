@@ -20,6 +20,12 @@ export const EMOJI_CASES = [
   ['😟', 'sad'], ['🙁', 'sad'], ['❌', 'sad'], ['😢', 'sad'], ['🐛', 'sad'], ['⚠️', 'sad'],
   ['😴', 'sleepy'], ['💤', 'sleepy'], ['🥱', 'sleepy'],
   ['🙂', 'neutral'], ['😐', 'neutral'], ['😶', 'neutral'],
+  // formerly fell through to the "happy default" — now classified faithfully:
+  ['🔧', 'thinking'], ['🛠️', 'thinking'], ['⚙️', 'thinking'], ['🔬', 'thinking'], ['💡', 'thinking'], ['🌐', 'thinking'],
+  ['🐞', 'sad'], ['🆘', 'sad'], ['‼️', 'sad'], ['❗', 'sad'], ['😤', 'sad'], ['🤬', 'sad'], ['😡', 'sad'], ['🚨', 'sad'],
+  ['🎯', 'excited'], ['💪', 'excited'],
+  ['🤷', 'neutral'],
+  ['🫡', 'happy'], ['🙏', 'happy'], ['🤝', 'happy'],
 ];
 
 // ── KNOWN GAPS: real misfires the suite surfaced — printed for review, not asserted,

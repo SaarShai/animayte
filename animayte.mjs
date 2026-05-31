@@ -16,7 +16,7 @@ import http from 'node:http';
 import { readFile, open, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, extname } from 'node:path';
-import { detectMood, detectUserTone } from './lib/sentiment.mjs';
+import { detectMood, detectUserTone, emojiReaction } from './lib/sentiment.mjs';
 import { classifyTool } from './lib/anim/events.mjs';
 import { createMoodMeter } from './lib/anim/mood.mjs';
 import { loadConfig } from './lib/anim/config.mjs';
@@ -170,6 +170,9 @@ function applySentiment(recentTexts, ms = 3000) {
   lastSentimentText = key;
   state.sentiment = best.mood; state.sentimentEmoji = best.emoji;
   setMood(best.mood, ms);
+  // if the agent typed an activity-emoji (🔧 🔬 🌐 💡 …), also put the matching item in hand
+  const react = best.emoji && emojiReaction(best.emoji);
+  if (react) broadcast({ cmd: 'react', name: react });
   return true;
 }
 

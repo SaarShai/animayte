@@ -59,9 +59,9 @@ It is:
 - **non-destructive** — it merges alongside your own hooks, and it will **not** overwrite a
   statusline you've already set (it prints how to switch if you want animayte's).
 
-> Already added the plugin **and** ran `install`? Both forward events, so the pet may react
-> twice. Pick one: `bin/animayte uninstall`, or disable the plugin. `bin/animayte doctor`
-> flags this.
+> Already have the plugin enabled? `install` notices and adds **only the statusline** (the one
+> thing the plugin doesn't wire), skipping the duplicate hooks so nothing fires twice. Force the
+> full global hook install anyway with `bin/animayte install --with-hooks`.
 
 The project-level `.claude/settings.json` in this repo only covers sessions launched **inside
 the animayte folder** — `install` is what makes it work everywhere.
@@ -136,7 +136,7 @@ fix for anything wrong.
 | Installed but still nothing | Claude Code hasn't reloaded the hooks | fully **restart Claude Code** in the project |
 | `doctor` reports a **port mismatch** | hooks POST to one port, daemon on another | re-run install + start with the same `ANIMAYTE_PORT` |
 | Context % stuck at 0 | **no transcript** / new session | it fills once the session has a `usage` object (after the first turn) |
-| Pet reacts **twice** to everything | both the plugin **and** a global install are active | `bin/animayte uninstall`, or disable the plugin |
+| Pet reacts **twice** to everything | you forced `--with-hooks` while the plugin is on | re-run plain `bin/animayte install` (statusline-only), or disable the plugin |
 | Overlay shows `… reconnecting` and stays there | daemon is down | `bin/animayte start`; it re-attaches automatically when the daemon returns |
 | Statusline didn't appear | you already had a statusline | animayte won't overwrite it — `doctor` prints how to switch |
 

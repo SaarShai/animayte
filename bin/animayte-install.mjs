@@ -62,21 +62,33 @@ const clone = (o) => (o == null ? o : JSON.parse(JSON.stringify(o)));
  * Idempotent: drops any pre-existing animayte entries before re-adding, so re-running
  * never duplicates. Never clobbers the user's own hooks or a non-animayte statusLine.
  */
-export function applyInstall(settings, { port = DEFAULT_PORT, repoRoot = REPO_ROOT } = {}) {
+export function applyInstall(settings, { port = DEFAULT_PORT, repoRoot = REPO_ROOT, hooks = true } = {}) {
   const s = clone(settings) || {};
   const warnings = [];
   s.hooks = s.hooks && typeof s.hooks === 'object' && !Array.isArray(s.hooks) ? s.hooks : {};
 
-  const cmd = hookCommand(port);
-  for (const ev of HOOK_EVENTS) {
-    const entry = MATCHER_EVENTS.has(ev)
-      ? { matcher: '*', hooks: [{ type: 'command', command: cmd }] }
-      : { hooks: [{ type: 'command', command: cmd }] };
-    const arr = Array.isArray(s.hooks[ev]) ? s.hooks[ev] : [];
-    const kept = arr.filter((g) => !isAnimayteHookGroup(g)); // refresh: remove our old entry, keep the user's
-    kept.push(entry); // additive: our forwarder runs alongside whatever else the user has
-    s.hooks[ev] = kept;
+  if (hooks) {
+    const cmd = hookCommand(port);
+    for (const ev of HOOK_EVENTS) {
+      const entry = MATCHER_EVENTS.has(ev)
+        ? { matcher: '*', hooks: [{ type: 'command', command: cmd }] }
+        : { hooks: [{ type: 'command', command: cmd }] };
+      const arr = Array.isArray(s.hooks[ev]) ? s.hooks[ev] : [];
+      const kept = arr.filter((g) => !isAnimayteHookGroup(g)); // refresh: remove our old entry, keep the user's
+      kept.push(entry); // additive: our forwarder runs alongside whatever else the user has
+      s.hooks[ev] = kept;
+    }
+  } else {
+    // statusline-only mode (the plugin already wires the hooks): make sure NO animayte hook
+    // groups linger, so the pet can't fire twice. Leaves the user's own hooks untouched.
+    for (const ev of Object.keys(s.hooks)) {
+      if (!Array.isArray(s.hooks[ev])) continue;
+      const kept = s.hooks[ev].filter((g) => !isAnimayteHookGroup(g));
+      if (kept.length) s.hooks[ev] = kept;
+      else delete s.hooks[ev];
+    }
   }
+  if (Object.keys(s.hooks).length === 0) delete s.hooks;
 
   // statusLine: claim only an empty slot or one already ours — never overwrite the user's.
   const slCmd = s.statusLine && typeof s.statusLine === 'object' ? s.statusLine.command : null;
@@ -245,9 +257,17 @@ async function main(argv) {
   const port = Number(process.env.ANIMAYTE_PORT) || DEFAULT_PORT;
   const path = settingsPath();
   if (cmd === 'install') {
-    const r = await installToFile(path, { port });
+    // If animayte is already enabled as a plugin, the plugin wires the hooks — installing
+    // them globally too would fire every event twice. Default to statusline-only in that
+    // case (the one thing the plugin doesn't provide); --with-hooks forces the full install.
+    const before = await readSettings(path);
+    const pluginEnabled = !!(before.enabledPlugins && Object.keys(before.enabledPlugins).some((k) => /^animayte(@|$)/.test(k)));
+    const forceHooks = argv.includes('--with-hooks');
+    const hooks = forceHooks || !pluginEnabled;
+    const r = await installToFile(path, { port, hooks });
     console.log(`\n🐣 animayte installed globally → ${r.path}`);
-    console.log(`   · ${HOOK_EVENTS.length} hooks forward to http://127.0.0.1:${port}/event`);
+    if (hooks) console.log(`   · ${HOOK_EVENTS.length} hooks forward to http://127.0.0.1:${port}/event`);
+    else console.log(`   · hooks: handled by the animayte plugin (skipped the duplicate global hooks — use --with-hooks to force)`);
     console.log(`   · statusline: ${r.settings.statusLine && isAnimayteStatuslineCmd(r.settings.statusLine.command) ? 'on' : 'left as-is'}`);
     if (r.backup) console.log(`   · backup: ${r.backup}`);
     for (const w of r.warnings) console.log(`   ⚠ ${w}`);

@@ -95,6 +95,19 @@ console.log('· file round-trip — backup-safe + reversible on disk');
   ok('every mutation left a timestamped backup', backups.length >= 2);
 }
 
+console.log('· statusline-only mode (plugin already wires the hooks → no double-fire)');
+{
+  // a user who already has the plugin + a stale animayte global hook from a prior full install
+  const original = applyInstall({ enabledPlugins: { 'animayte@animayte': true } }, { repoRoot: '/repo' }).settings;
+  ok('pre-state has animayte hooks', animayteGroups(original).length === 9);
+  const slOnly = applyInstall(original, { repoRoot: '/repo', hooks: false }).settings;
+  eq('statusline-only removes ALL animayte hook groups', animayteGroups(slOnly).length, 0);
+  ok('statusline-only still sets the statusline', slOnly.statusLine && slOnly.statusLine.command === statuslineCommand('/repo'));
+  ok('statusline-only preserves enabledPlugins', slOnly.enabledPlugins['animayte@animayte'] === true);
+  const userKept = applyInstall({ hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'echo u' }] }] } }, { repoRoot: '/repo', hooks: false }).settings;
+  eq("statusline-only leaves the user's own hooks intact", userKept.hooks.PreToolUse[0].hooks[0].command, 'echo u');
+}
+
 console.log('· a custom port is baked into the hook commands');
 {
   const r = applyInstall({}, { port: 4399, repoRoot: '/repo' }).settings;

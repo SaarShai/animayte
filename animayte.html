@@ -303,19 +303,31 @@
   }
 
   // ============================================================================
-  //  boot — prefer the rich engine runtime over http; fall back to legacy
+  //  boot — engine preference: Rive (.riv present) → Canvas2D runtime → legacy
   // ============================================================================
+  const loadScript=(src)=>new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('script '+src)); document.head.appendChild(s); });
   (async function boot(){
+    const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     if(location.protocol!=='file:'){
       try{
-        const mod=await import('/lib/anim/runtime.mjs');
         let pet='slime', personaName='adaptive', sound=false, volume=0.6;
         try{ const h=await fetch('/health').then(r=>r.json()); const st=(h&&h.state)||{}; pet=st.pet||'slime'; personaName=st.personality||'adaptive'; sound=st.sound===true; if(typeof st.volume==='number') volume=st.volume; }catch(_){}
-        let personality=null;
-        try{ personality=await fetch('/personalities/'+personaName+'.json').then(r=>r.ok?r.json():null); }catch(_){}
-        const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-        ctrl=await mod.createRuntime(cv,{ manifestUrl:'/pets/'+pet+'/pet.json', personality, sound, volume, reduceMotion });
-      }catch(e){ console.warn('animayte: rich runtime unavailable, using legacy renderer', e); ctrl=makeLegacy(); }
+        // prefer Rive when this pet ships a .riv (authored in the Rive editor → docs/rive-contract.md)
+        let riveSrc=null;
+        try{ const hr=await fetch('/pets/'+pet+'/pet.riv',{method:'HEAD'}); if(hr.ok) riveSrc='/pets/'+pet+'/pet.riv'; }catch(_){}
+        if(riveSrc){
+          await loadScript('/assets/vendor/rive/rive.js');
+          window.rive.RuntimeLoader.setWasmUrl('/assets/vendor/rive/rive.wasm');
+          const mod=await import('/lib/rive/driver.mjs');
+          ctrl=await mod.createRiveController(window.rive,{ canvas:cv, src:riveSrc, reduceMotion });
+          const pill=$('livePill'); if(pill) pill.title='engine: Rive';
+        } else {
+          const mod=await import('/lib/anim/runtime.mjs');
+          let personality=null;
+          try{ personality=await fetch('/personalities/'+personaName+'.json').then(r=>r.ok?r.json():null); }catch(_){}
+          ctrl=await mod.createRuntime(cv,{ manifestUrl:'/pets/'+pet+'/pet.json', personality, sound, volume, reduceMotion });
+        }
+      }catch(e){ console.warn('animayte: renderer init failed, using legacy renderer', e); ctrl=makeLegacy(); }
     } else {
       ctrl=makeLegacy();
       say('tap ▶ Play demo to see the moods',6000);

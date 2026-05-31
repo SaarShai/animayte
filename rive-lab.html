@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>animayte · Rive lab</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:#22303a;background:#eef4fb;margin:0;padding:16px}
+  h1{font-size:16px;margin:0 0 2px} .sub{color:#7d8a98;font-size:12px;margin:0 0 12px}
+  .wrap{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+  .stage{background:linear-gradient(180deg,#dcefff,#dff3e6);border-radius:16px;box-shadow:0 10px 24px rgba(70,110,150,.16);padding:8px}
+  canvas{display:block;width:360px;height:360px;border-radius:10px}
+  .panel{background:#fff;border-radius:14px;padding:12px 14px;min-width:320px;max-width:440px;box-shadow:0 8px 20px rgba(70,110,150,.1);font-size:13px}
+  .panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#7d8a98;margin:10px 0 6px}
+  .row{display:flex;align-items:center;gap:8px;margin:5px 0}
+  .row label{width:120px;flex:none;font-variant-numeric:tabular-nums}
+  input[type=range]{flex:1} .val{width:42px;text-align:right;color:#5b8cff;font-variant-numeric:tabular-nums}
+  button{border:0;background:#eef4fb;color:#22303a;font-weight:600;border-radius:9px;padding:6px 10px;cursor:pointer;font-family:inherit}
+  button.p{background:linear-gradient(180deg,#6f9bff,#5b8cff);color:#fff}
+  .pill{display:inline-block;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700;margin:2px 4px 2px 0}
+  .ok{background:#d8f5e3;color:#127a45} .miss{background:#ffe1e6;color:#c0334a}
+  code{background:#f2f6fb;border-radius:5px;padding:1px 5px;font-size:12px}
+  #log{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#5a6b78;max-height:120px;overflow:auto;background:#f7fafd;border-radius:8px;padding:8px;margin-top:8px;white-space:pre-wrap}
+  .live{font-weight:700;font-size:12px}
+</style>
+</head>
+<body>
+  <h1>animayte · Rive lab</h1>
+  <p class="sub">Proves the vendored Rive runtime loads locally, renders a <code>.riv</code>, and is driven by inputs — and checks any loaded <code>.riv</code> against the animayte contract. Load a different file with <code>?src=/pets/slime/pet.riv</code>.</p>
+  <div class="wrap">
+    <div class="stage"><canvas id="cv" width="720" height="720"></canvas></div>
+    <div class="panel">
+      <div class="row"><span class="live" id="engine">loading Rive…</span> <span id="livePill" class="pill">SSE ○</span></div>
+      <h2>Contract check (docs/rive-contract.md)</h2>
+      <div id="contract">—</div>
+      <h2>State machine inputs (live)</h2>
+      <div id="inputs">—</div>
+      <h2>Drive via our controller</h2>
+      <div class="row" style="flex-wrap:wrap;gap:6px">
+        <button onclick="C&&C.setMood('thinking')">thinking</button>
+        <button onclick="C&&C.setMood('happy')">happy</button>
+        <button onclick="C&&C.setMood('excited')">excited</button>
+        <button onclick="C&&C.setMood('sad')">sad</button>
+        <button onclick="C&&C.reactByName('Reading')">reading</button>
+        <button onclick="C&&C.relief()">compact</button>
+        <button onclick="C&&C.addBird()">+bird</button>
+        <button onclick="C&&C.reset()">reset</button>
+      </div>
+      <div id="log"></div>
+    </div>
+  </div>
+
+<script src="/assets/vendor/rive/rive.js"></script>
+<script type="module">
+  import { createRiveController } from '/lib/rive/driver.mjs';
+  import { INPUTS, INPUT_NAMES, STATE_MACHINE, ARTBOARD } from '/lib/rive/contract.mjs';
+  const $ = (id) => document.getElementById(id);
+  const log = (m) => { $('log').textContent = (new Date().toLocaleTimeString()) + '  ' + m + '\n' + $('log').textContent; };
+  window.C = null;
+
+  // use the LOCAL vendored wasm (offline, version-matched) — not a CDN
+  rive.RuntimeLoader.setWasmUrl('/assets/vendor/rive/rive.wasm');
+
+  const params = new URLSearchParams(location.search);
+  const src = params.get('src') || '/assets/vendor/rive/sample.riv';
+  const sm = params.get('sm') || undefined;          // let it auto-pick if not given
+
+  (async () => {
+    try {
+      const C = await createRiveController(rive, { canvas: $('cv'), src, stateMachine: sm });
+      window.C = C;
+      const st = C.state;
+      $('engine').textContent = '● Rive — ' + (st.stateMachine || 'default') + '  (' + src.split('/').pop() + ')';
+      log('loaded ' + src + ' · state machine: ' + st.stateMachine);
+
+      // contract check
+      const present = new Set(st.inputs);
+      $('contract').innerHTML = INPUT_NAMES.map((n) => `<span class="pill ${present.has(n) ? 'ok' : 'miss'}">${n}</span>`).join('') +
+        `<div class="sub" style="margin-top:6px">${present.size && INPUT_NAMES.some(n=>present.has(n)) ? 'animayte inputs found ✓' : 'no animayte inputs — this .riv renders but won\'t react. Author one to the contract.'}</div>`;
+
+      // live controls for the .riv's ACTUAL inputs (proves input→render)
+      const r = C.rive;
+      const smName = st.stateMachine;
+      const list = smName ? (r.stateMachineInputs(smName) || []) : [];
+      $('inputs').innerHTML = list.length ? '' : '<span class="sub">this .riv exposes no state-machine inputs</span>';
+      for (const inp of list) {
+        const row = document.createElement('div'); row.className = 'row';
+        const kind = inp.type; // 56=number? use SMIInput types; simplest: feature-detect
+        if (typeof inp.fire === 'function' && inp.value === undefined) {
+          row.innerHTML = `<label>${inp.name}</label>`; const b = document.createElement('button'); b.textContent = 'fire'; b.onclick = () => { inp.fire(); log('fire ' + inp.name); }; row.appendChild(b);
+        } else if (typeof inp.value === 'boolean') {
+          row.innerHTML = `<label>${inp.name}</label>`; const c = document.createElement('input'); c.type = 'checkbox'; c.checked = inp.value; c.onchange = () => { inp.value = c.checked; log(inp.name + '=' + c.checked); }; row.appendChild(c);
+        } else {
+          row.innerHTML = `<label>${inp.name}</label>`; const s = document.createElement('input'); s.type = 'range'; s.min = 0; s.max = 100; s.value = inp.value || 0; const v = document.createElement('span'); v.className = 'val'; v.textContent = s.value; s.oninput = () => { inp.value = +s.value; v.textContent = s.value; }; row.appendChild(s); row.appendChild(v);
+        }
+        $('inputs').appendChild(row);
+      }
+
+      // forward live daemon events (proves the daemon → Rive path end-to-end)
+      try {
+        const es = new EventSource('/events');
+        es.onopen = () => { $('livePill').textContent = 'SSE ●'; $('livePill').className = 'pill ok'; };
+        es.onmessage = (e) => { try { const m = JSON.parse(e.data); C.dispatch(m); if (m.cmd && m.cmd !== 'say') log('SSE ' + m.cmd + (m.value !== undefined ? '=' + m.value : '') + (m.name ? ' ' + m.name : '')); } catch (_) {} };
+      } catch (_) {}
+      window.addEventListener('resize', () => C.resize());
+    } catch (e) {
+      $('engine').textContent = '✗ Rive failed to load';
+      log('ERROR ' + (e && e.message || e));
+    }
+  })();
+</script>
+</body>
+</html>

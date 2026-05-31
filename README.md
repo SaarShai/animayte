@@ -132,6 +132,14 @@ renderer-conformance contract that keeps the 3 renderers in sync:
 **[docs/renderer-runtime.md](docs/renderer-runtime.md)**. The full event→animation taxonomy:
 **[docs/animation-library.md](docs/animation-library.md)**.
 
+> **Adopting Rive (next-gen renderer).** Research ([docs/engine-research.md](docs/engine-research.md))
+> picked **Rive** (unconditional-MIT runtime, state-machine + data-binding feature-swap) to replace the
+> custom Canvas2D engine. The seam is built: the daemon stays the brain and drives a Rive `.riv` via the
+> documented contract ([docs/rive-contract.md](docs/rive-contract.md)) — the page auto-prefers Rive when a
+> `pet.riv` exists, else falls back to the pixel pet. See it now at `/rive-lab.html`. The remaining step is
+> authoring the character in the Rive editor to the contract; everything around it (runtime, driver,
+> mapping, tests, desktop hosting plan) is done.
+
 ```bash
 npm run preview       # contact-sheets + clip filmstrips → tools/preview-out/ (QA the art)
 npm run simulate      # replay canned sessions → the pet's state timeline

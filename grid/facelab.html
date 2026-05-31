@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>animayte · Dijon face lab</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; padding: 32px 24px 56px;
+    background: radial-gradient(1200px 700px at 50% -10%, #1b2440, #0a0e1a 70%);
+    font: 13px/1.4 ui-monospace, "SF Mono", Menlo, monospace; color: #aeb6c8; }
+  h1 { font-size: 14px; letter-spacing: .14em; text-transform: uppercase; color: #6f7a93; font-weight: 600; text-align: center; margin: 0 0 6px; }
+  .sub { text-align: center; color: #59617a; font-size: 12px; margin-bottom: 26px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 18px; max-width: 1100px; margin: 0 auto; }
+  .card { background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.06); border-radius: 14px; padding: 14px 14px 12px; text-align: center; }
+  .card.ref { opacity: .62; border-style: dashed; }
+  .card.hero { border-color: rgba(230,168,23,.35); background: rgba(230,168,23,.05); }
+  canvas { image-rendering: pixelated; display: block; margin: 0 auto 8px; }
+  .name { color: #e6a817; font-size: 13px; letter-spacing: .04em; }
+  .card.ref .name { color: #7c869c; }
+  .note { color: #7c869c; font-size: 11px; margin: 3px 0 7px; min-height: 26px; }
+  .spec { color: #4d556b; font-size: 10.5px; line-height: 1.5; }
+  .spec b { color: #8893aa; font-weight: 600; }
+</style>
+</head>
+<body>
+  <h1>Dijon · face lab</h1>
+  <div class="sub" id="sub">family under review — annotate what reads wrong</div>
+  <div class="grid" id="grid"></div>
+
+<script type="module">
+  import { render, sizeCanvas } from '/grid/engine.mjs';
+  import { GRID, PALETTE, compose } from '/grid/creature.mjs';
+
+  // EDIT THIS per family. ref:true = greyed reference (today's face) for contrast.
+  const TITLE = 'family: DETERMINED — "an error isn’t sad; I’m on it"';
+  const CANDIDATES = [
+    { name: 'sad (today)', ref: true, note: 'the old catch-all for any error', face: { eyes: 'open', brows: 'sad', mouth: 'frown' } },
+    { name: 'thinking (today)', ref: true, note: 'working / curious', face: { eyes: 'look_up', brows: 'one_raised', mouth: 'flat_skew' } },
+    { name: 'determined · open', hero: true, note: 'open eyes + furrowed brow + firm ’stache', face: { eyes: 'open', brows: 'determined', mouth: 'set' } },
+    { name: 'determined · focused', hero: true, note: 'narrowed, locked-in gaze', face: { eyes: 'focused', brows: 'determined', mouth: 'set' } },
+    { name: 'determined · intense', hero: true, note: 'high intensity → a bead of effort-sweat', face: { eyes: 'focused', brows: 'determined', mouth: 'set', sweat: true } },
+    { name: 'determined + hammer', hero: true, note: 'rolling up the sleeves (activity prop)', face: { eyes: 'open', brows: 'determined', mouth: 'set' }, props: ['hammer'] },
+  ];
+
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const CELL = 9;
+  document.getElementById('sub').textContent = TITLE;
+  const grid = document.getElementById('grid');
+
+  function specText(f) {
+    const parts = [`<b>eyes</b> ${f.eyes || 'dots'}`];
+    if (f.brows) parts.push(`<b>brows</b> ${f.brows}`);
+    parts.push(`<b>'stache</b> ${f.mouth || 'neutral'}`);
+    const acc = ['blush', 'flush', 'sweat', 'zzz'].filter((k) => f[k]);
+    if (acc.length) parts.push(`<b>accent</b> ${acc.join(', ')}`);
+    return parts.join(' · ');
+  }
+
+  for (const c of CANDIDATES) {
+    const el = document.createElement('div');
+    el.className = 'card' + (c.ref ? ' ref' : '') + (c.hero ? ' hero' : '');
+    const cv = document.createElement('canvas'); el.appendChild(cv);
+    const label = document.createElement('div'); label.className = 'name'; label.textContent = c.name; el.appendChild(label);
+    const note = document.createElement('div'); note.className = 'note'; note.textContent = c.note || ''; el.appendChild(note);
+    const sp = document.createElement('div'); sp.className = 'spec'; sp.innerHTML = specText(c.face); el.appendChild(sp);
+    grid.appendChild(el);
+    const ctx = sizeCanvas(cv, GRID.w, GRID.h, CELL, dpr);
+    render(ctx, compose(c.face, { props: c.props || [] }), PALETTE, { gridW: GRID.w, gridH: GRID.h, cell: CELL });
+  }
+</script>
+</body>
+</html>

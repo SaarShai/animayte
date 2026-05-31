@@ -23,6 +23,7 @@ export const EYES = {
   stars:     G(['.D...D.', 'DDD.DDD', '.D...D.']),          // ✦✦ sparkle
   look_up:   G(['DD..DD', '......']),                        // pupils raised (thinking)
   closed:    G(['DDD..DDD']),                                // ___ resting
+  focused:   G(['DDDD..DDDD']),                              // narrowed, intense (determined)
 };
 const BLINK = G(['DDD..DDD']); // transient over any expression
 
@@ -31,6 +32,7 @@ export const BROWS = {
   one_raised: G(['......DD', 'DD......']),                  // skeptical asymmetry
   worried:    G(['..DD..DD..', 'DD......DD']),              // inner-up
   sad:        G(['..DDDD..', '.D....D.', 'D......D']),      // strong inner-up angle
+  determined: G(['DD......DD', '..DD..DD..']),              // outer-up / inner-down furrow — focused resolve
 };
 
 // ── mouth = MUSTACHE, morphed to the feeling ────────────────────────────────────
@@ -92,6 +94,12 @@ export const MOUTH = {
     '..DDD....DDD..',
     'D.DD......DD.D',
     'DD..........DD',
+  ]),
+  set: G([                          // firm, resolute bar — neither up nor down (determined)
+    'DD..........DD',
+    'D.DD......DD.D',
+    '..DDDDDDDDDD..',
+    '..DDDDDDDDDD..',
   ]),
 };
 

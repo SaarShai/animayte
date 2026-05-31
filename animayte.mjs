@@ -16,7 +16,7 @@ import http from 'node:http';
 import { readFile, open, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, extname } from 'node:path';
-import { detectMood } from './lib/sentiment.mjs';
+import { detectMood, detectUserTone } from './lib/sentiment.mjs';
 import { classifyTool } from './lib/anim/events.mjs';
 import { createMoodMeter } from './lib/anim/mood.mjs';
 import { loadConfig } from './lib/anim/config.mjs';
@@ -101,6 +101,7 @@ function windowFor(model) {
 // Tail-read the transcript once, returning BOTH the real context usage and the
 // newest assistant text (for sentiment). One read, two signals.
 let lastSentimentText = '';
+let waitTimer = null;   // pending "looking around for the user" glance after a turn ends
 async function readTranscriptTail(path) {
   try {
     if (!path) return null;
@@ -175,12 +176,21 @@ function applySentiment(recentTexts, ms = 3000) {
 // ---- hook event -> pet behavior (+ real context + sentiment from agent text) ----
 async function handleEvent(ev) {
   const name = ev.hook_event_name || ev.event || ev.hookEventName || '';
+  if (waitTimer) { clearTimeout(waitTimer); waitTimer = null; }  // any event = activity resumed; cancel the pending wait-glance
   const tail = await readTranscriptTail(ev.transcript_path);
   if (tail && tail.ctx && !reliefActive) { state.ctxTokens = tail.ctx.tokens; state.ctxWindow = tail.ctx.win; state.ctxPct = Math.round(tail.ctx.pct * 100); setFullness(tail.ctx.pct); }
 
   switch (name) {
     case 'SessionStart':     if (ev.model) state.model = ev.model; freshStart(); setMood('happy', 2500); say('👋 hi! a new session'); break;
-    case 'UserPromptSubmit': hatch(); setMood('thinking'); say('👀 reading your request…'); break;
+    case 'UserPromptSubmit': {
+      hatch();
+      // react to HOW the user spoke to the pet — praise makes it proud, a correction sheepish
+      const tone = detectUserTone(ev.prompt || ev.user_prompt || ev.message || '');
+      if (tone && tone.tone === 'praise') { setMood(tone.mood, 3200); say(tone.mood === 'excited' ? '🤩 aw — thank you!' : '😊 aw, thanks!'); }
+      else if (tone && tone.tone === 'scold') { setMood(tone.mood, 3200); say(tone.mood === 'embarrassed' ? '🙈 sorry — let me fix that' : '😅 my bad — on it'); }
+      else { setMood('thinking'); say('👀 reading your request…'); }
+      break;
+    }
     case 'PreToolUse': {
       const tool = ev.tool_name || ev.toolName || '';
       if (tool === 'Task' || tool === 'Agent') {
@@ -204,10 +214,23 @@ async function handleEvent(ev) {
       break;
     case 'PostToolUseFailure': setMood('sad', 2400); say('😟 that didn’t work — trying again'); break;
     case 'SubagentStop': removeBird(); if (state.birds.length === 0) setMood('happy', 1600); break;
-    case 'Notification': if (ev.message) say('🔔 ' + String(ev.message).slice(0, 48)); break;
+    case 'Notification': {
+      const msg = String(ev.message || '');
+      if (/permission|needs your (permission|approval)|approve|wants to|allow\b/i.test(msg)) {
+        broadcast({ cmd: 'react', name: 'Asking' });           // look up expectantly with a "?" — may I proceed?
+        say('🙋 may I? ' + msg.slice(0, 40));
+      } else if (/waiting for your input|is waiting|idle|are you (there|still)/i.test(msg)) {
+        broadcast({ cmd: 'react', name: 'Waiting' });
+        say('👀 your turn…');
+      } else if (msg) { say('🔔 ' + msg.slice(0, 48)); }
+      break;
+    }
     case 'Stop':
       // when Claude finishes a turn, reflect the emotion of what it just said
       if (!applySentiment(tail && tail.recentTexts, 5000)) setMood(state.fullness > 0.8 ? 'sleepy' : 'neutral');
+      // then, after a beat with no follow-up event, look up and around — expecting the user
+      waitTimer = setTimeout(() => { waitTimer = null; broadcast({ cmd: 'react', name: 'Waiting' }); }, 3500);
+      if (waitTimer.unref) waitTimer.unref();
       break;
     case 'PreCompact':   triggerRelief(); break;   // dramatic deflate + steam from the "ears"
     case 'SessionEnd':   sleepPet(); break;

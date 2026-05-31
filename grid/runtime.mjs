@@ -75,7 +75,7 @@ export function createGridRuntime(canvas, opts = {}) {
     if (S.mood in REACT_PRIORITY) sm.react({ clip: 'react', expression: expr, priority: REACT_PRIORITY[S.mood], return: 'idle' });
     if (S.mood === 'excited') burst();
     if (S.mood === 'oops' || S.mood === 'bashful') S.shake = 1;
-    if (S.mood === 'sad') S.errFlash = 1;
+    if (S.mood === 'sad') { S.errFlash = 1; S.shake = 0.7; }  // bad news lands as a quick wince/flinch
   }
   function setFullness(v) { if (REL.active) return; S.fullness = clamp(v, 0, 1); } // relief owns fullness while deflating
   function addBird(label) { if (S.birds.length >= 5) return; S.birds.push({ id: birdSeq++, label: label || 'task', born: S.lastT }); }

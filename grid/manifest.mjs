@@ -37,18 +37,22 @@ export const MANIFEST = {
     boredClip: 'bored',
     boredAfterMs: 30000,
   },
-  // tool poses (event names match lib/anim/events.mjs classifyTool) — all read as
-  // "thinking", a couple carry a prop so "what's it doing?" is legible at a glance.
+  // tool poses (event names match lib/anim/events.mjs classifyTool) — each read as
+  // "thinking" but carrying a DISTINCT prop so "what's it doing?" is legible at a glance.
   reactions: {
-    Reading:    { clip: 'react', expression: 'thinking', priority: 2 },
-    Searching:  { clip: 'react', expression: 'thinking', priority: 2 },
+    Reading:    { clip: 'react', expression: 'thinking', prop: 'book', priority: 2 },
+    Searching:  { clip: 'react', expression: 'thinking', prop: 'magnifier', priority: 2 },
     Writing:    { clip: 'react', expression: 'thinking', prop: 'hammer', priority: 2 },
-    Running:    { clip: 'react', expression: 'thinking', prop: 'hammer', priority: 2 },
-    Testing:    { clip: 'react', expression: 'thinking', priority: 2 },
-    Installing: { clip: 'react', expression: 'thinking', priority: 2 },
+    Running:    { clip: 'react', expression: 'thinking', prop: 'terminal', priority: 2 },
+    Testing:    { clip: 'react', expression: 'thinking', prop: 'terminal', priority: 2 },
+    Installing: { clip: 'react', expression: 'thinking', prop: 'box', priority: 2 },
     Committing: { clip: 'react', expression: 'happy', priority: 2 },
-    Fetching:   { clip: 'react', expression: 'thinking', priority: 2 },
+    Fetching:   { clip: 'react', expression: 'thinking', prop: 'globe', priority: 2 },
     Planning:   { clip: 'react', expression: 'thinking', prop: 'lightbulb', priority: 2 },
+    // session-signal poses (NOT tool gags): looking around for the user, and asking to proceed.
+    // They reuse existing faces + the 'glance' look-around so no 9th feeling is introduced.
+    Waiting:    { clip: 'glance', expression: 'neutral', priority: 1 },
+    Asking:     { clip: 'glance', expression: 'thinking', prop: 'question', priority: 3 },
   },
 };
 

@@ -69,6 +69,25 @@ export const NULL_CASES = [
   '   \n  ',
 ];
 
+// ── SETTLED: USER tone → how the pet reacts to being SPOKEN TO (detectUserTone).
+// [text, tone|null, mood|null]. The null cases are false-positive guards: a task that
+// merely MENTIONS a problem ("fix the failing test") must stay neutral, not apologetic.
+export const USER_TONE_CASES = [
+  ['thanks, that works great', 'praise', 'happy'],
+  ['nice job!', 'praise', 'happy'],
+  ['this is amazing, you nailed it', 'praise', 'excited'],
+  ['brilliant 🎉', 'praise', 'excited'],
+  ["no, that's wrong", 'scold', 'oops'],
+  ['you broke the tests', 'scold', 'oops'],
+  ['ugh, still not working', 'scold', 'oops'],
+  ['this is completely wrong', 'scold', 'embarrassed'],
+  // false-positive guards — normal tasks that name a problem must NOT scold the pet:
+  ['fix the failing test', null, null],
+  ['the build is broken, can you look', null, null],
+  ['add a feature to the parser', null, null],
+  ['why is this slow', null, null],
+];
+
 // ── SESSIONS: realistic transcripts (chronological assistant utterances).
 // The test replays each through the daemon's salience rule (RECENCY-FIRST: the newest
 // text carrying a feeling wins; priority arbitrates only within one text) and checks the

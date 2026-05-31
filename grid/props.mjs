@@ -41,6 +41,79 @@ export const PROPS = {
     col: Math.round(bodyCx + 8),
     row: 15,
   },
+  // searching — a magnifying glass held at the side (G=rim, W=glint, H=handle)
+  magnifier: {
+    sprite: G([
+      '.GG.',
+      'GW.G',
+      'G..G',
+      '.GG.',
+      '..HH',
+      '...H',
+    ]),
+    col: Math.round(bodyCx + 8),
+    row: 15,
+  },
+  // reading — an open book (W=pages, H=spine)
+  book: {
+    sprite: G([
+      'WWHWW',
+      'WWHWW',
+      'WWHWW',
+      'WWHWW',
+    ]),
+    col: Math.round(bodyCx + 7),
+    row: 16,
+  },
+  // running / testing — a little terminal screen (G=frame, D=screen, W=prompt cursor)
+  terminal: {
+    sprite: G([
+      'GGGGG',
+      'GDDDG',
+      'GWDDG',
+      'GDDDG',
+      'GGGGG',
+    ]),
+    col: Math.round(bodyCx + 7),
+    row: 15,
+  },
+  // installing — a package/crate (S=lid tape, H=box)
+  box: {
+    sprite: G([
+      'SSSS',
+      'HHHH',
+      'H..H',
+      'HHHH',
+    ]),
+    col: Math.round(bodyCx + 8),
+    row: 16,
+  },
+  // fetching — a globe (C=ocean, W=meridian highlight)
+  globe: {
+    sprite: G([
+      '.CC.',
+      'CCCC',
+      'CWWC',
+      'CCCC',
+      '.CC.',
+    ]),
+    col: Math.round(bodyCx + 8),
+    row: 15,
+  },
+  // asking permission — a question mark floating in the headroom (W=mark)
+  question: {
+    sprite: G([
+      '.WW.',
+      'W..W',
+      '...W',
+      '..W.',
+      '..W.',
+      '....',
+      '..W.',
+    ]),
+    col: Math.round(bodyCx - 2),
+    row: 0,
+  },
 };
 
 /** propCells(name) → flat cells already placed in grid coordinates (or [] if unknown). */

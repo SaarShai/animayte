@@ -13,7 +13,8 @@ createServer(async (req, res) => {
     if (p === '/') p = '/grid/playground.html'; // entry; imports are absolute so the URL is fine
     const file = join(root, normalize(p).replace(/^(\.\.[/\\])+/, ''));
     const body = await readFile(file);
-    res.writeHead(200, { 'content-type': TYPES[extname(file)] || 'application/octet-stream' });
+    // no-store so the browser never serves a stale build of the ES modules on reload
+    res.writeHead(200, { 'content-type': TYPES[extname(file)] || 'application/octet-stream', 'cache-control': 'no-store, max-age=0' });
     res.end(body);
   } catch {
     res.writeHead(404); res.end('not found');

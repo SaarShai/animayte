@@ -22,10 +22,12 @@ const messages = [];
 for (const raw of lines) {
   const l = raw.trim(); if (!l) continue;
   let o; try { o = JSON.parse(l); } catch { continue; }
-  const msg = o.message || o;
+  // generic across agents: Claude Code (o.message|o, content[].text),
+  // Codex (o.payload, role assistant, content[].output_text). Concatenate text blocks.
+  const msg = o.message || o.payload || o;
   const isAssistant = msg && (msg.role === 'assistant' || o.type === 'assistant');
   if (isAssistant && Array.isArray(msg.content)) {
-    const t = msg.content.filter((b) => b.type === 'text' && b.text).map((b) => b.text).join(' ').trim();
+    const t = msg.content.filter((b) => (b.type === 'text' || b.type === 'output_text') && b.text).map((b) => b.text).join(' ').trim();
     if (t) messages.push(t);
   }
 }

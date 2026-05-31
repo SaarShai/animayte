@@ -16,6 +16,7 @@ import { MANIFEST, MOOD_EXPRESSION } from './manifest.mjs';
 import { motionFor } from './motion.mjs';
 import { createStateMachine } from '../lib/anim/state-machine.mjs';
 import { byId } from '../lib/expressions.mjs';
+import { composeExpression } from './compose.mjs';
 
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -43,7 +44,7 @@ export function createGridRuntime(canvas, opts = {}) {
   const BEADS = [{ dx: -3, t: 0.15, speed: 0.0004 }, { dx: 2.5, t: 0.66, speed: 0.00033 }];
 
   const sm = createStateMachine(MANIFEST, { defaultExpression: 'neutral', secondaryEveryMs: 7000 });
-  const S = { mood: 'idle', fullness: 0, phase: 'alive', birds: [], fx: [], shake: 0, errFlash: 0, lastT: 0, lastZ: 0, now: 0 };
+  const S = { mood: 'idle', fullness: 0, phase: 'alive', birds: [], fx: [], shake: 0, errFlash: 0, lastT: 0, lastZ: 0, now: 0, exprFace: null, exprItem: null };
   let birdSeq = 1;
   // /compact relief — an 8s eased deflation with smoke hissing out the sides
   const REL = { active: false, t0: 0, from: 0, to: 0.3, lastPuff: 0, dur: 8000 };
@@ -70,6 +71,7 @@ export function createGridRuntime(canvas, opts = {}) {
   const REACT_PRIORITY = { happy: 4, excited: 6, oops: 4, bashful: 4, sad: 5, embarrassed: 5 };
   function setMood(mood) {
     S.phase = 'alive'; S.mood = mood || 'idle';
+    S.exprFace = null; S.exprItem = null;   // a sticky mood reclaims the face from any spec override
     const expr = MOOD_EXPRESSION[S.mood] || 'neutral';
     sm.setIdleExpression(expr);
     if (S.mood in REACT_PRIORITY) sm.react({ clip: 'react', expression: expr, priority: REACT_PRIORITY[S.mood], return: 'idle' });
@@ -88,15 +90,36 @@ export function createGridRuntime(canvas, opts = {}) {
   }
   function sleep() { S.phase = 'sleeping'; sm.setIdleExpression('sleepy'); sm.setIdleClip('sleep'); }
   function wake() { if (S.phase === 'sleeping') { S.phase = 'alive'; sm.setIdleClip('idle'); setMood('happy'); } }
-  function reset() { S.birds = []; S.fx = []; S.fullness = 0; S.phase = 'alive'; sm.reset(); sm.setIdleClip('idle'); setMood('idle'); }
-  function reactByName(name) { const r = MANIFEST.reactions[name]; if (r) { S.phase = 'alive'; sm.react({ ...r, name }); return true; } return false; }
+  function reset() { S.birds = []; S.fx = []; S.fullness = 0; S.phase = 'alive'; S.exprFace = null; S.exprItem = null; sm.reset(); sm.setIdleClip('idle'); setMood('idle'); }
+  function reactByName(name) { const r = MANIFEST.reactions[name]; if (r) { S.phase = 'alive'; S.exprFace = null; S.exprItem = null; sm.react({ ...r, name }); return true; } return false; }
   function toIdle() { return sm.release(); }
+
+  // ── applySpec — the FULL FeatureSpec render path (Route 2's seam) ───────────────
+  // composeExpression maps the appraisal AXES → a face + FX + prop; we render that
+  // composed face (not just the base mood) and fire the matching one-shot FX. Route 3
+  // wires the SSE `express` cmd to call pet.applySpec(spec).
+  function applySpec(spec) {
+    if (!spec || typeof spec !== 'object') return false;
+    const { face, fx, item } = composeExpression(spec);
+    S.phase = 'alive';
+    S.exprFace = face;                 // sticky visual override until the next mood/react/reset
+    S.exprItem = item || null;
+    if (fx.flash) S.errFlash = 1;      // red external-setback wince
+    if (fx.burst) burst();             // confetti on a big win
+    if (fx.shake) S.shake = Math.max(S.shake, fx.shake);
+    // a little squash-pop so the change is FELT; expression only feeds the react's tint hooks
+    sm.react({ clip: 'react', expression: spec.expression || 'neutral', priority: 5, return: 'idle' });
+    return true;
+  }
 
   // ── draw ─────────────────────────────────────────────────────────────────────
   function drawPet(now) {
     const cur = sm.current();
     const exprId = S.phase === 'sleeping' ? 'sleepy' : (cur.expression || 'neutral');
-    const face = { ...((byId(exprId) && byId(exprId).face) || {}) };
+    // a spec override (from applySpec) wins over the dictionary mood face — except while
+    // asleep, where 'sleepy' always shows.
+    const useSpec = S.exprFace && S.phase !== 'sleeping';
+    const face = useSpec ? { ...S.exprFace } : { ...((byId(exprId) && byId(exprId).face) || {}) };
 
     const m = motionFor(cur.clip, cur.t, now);
     const shakeX = S.shake > 0 ? Math.sin(now * 0.05) * S.shake * 0.6 : 0;
@@ -127,7 +150,7 @@ export function createGridRuntime(canvas, opts = {}) {
       }
       : null;
 
-    const props = cur.prop ? [cur.prop] : [];
+    const props = (useSpec && S.exprItem) ? [S.exprItem] : (cur.prop ? [cur.prop] : []);
     const cells = compose(face, { blink: !!m.blink, props });
     render(ctx, cells, PALETTE, { gridW: GRID.w, gridH: GRID.h, cell, transform: tf, colorFor, warp, eps: fullness > 0.05 ? 0.12 : 0.04 });
   }
@@ -212,8 +235,8 @@ export function createGridRuntime(canvas, opts = {}) {
   function resize(c) { cell = c; CX = cxCells * cell; ctx = sizeCanvas(canvas, GRID.w, GRID.h, cell, dpr); }
 
   return {
-    setMood, setFullness, addBird, removeBird, clearBirds, relief, sleep, wake, reset, reactByName, toIdle, resize,
-    get state() { const c = sm.current(); return { mood: S.mood, fullness: S.fullness, birds: S.birds.length, phase: S.phase, expression: c.expression, clip: c.clip, kind: c.kind, prop: c.prop, fx: S.fx.length, relief: REL.active }; },
+    setMood, setFullness, addBird, removeBird, clearBirds, relief, sleep, wake, reset, reactByName, toIdle, applySpec, resize,
+    get state() { const c = sm.current(); return { mood: S.mood, fullness: S.fullness, birds: S.birds.length, phase: S.phase, expression: c.expression, clip: c.clip, kind: c.kind, prop: (S.exprFace ? S.exprItem : c.prop), fx: S.fx.length, relief: REL.active, spec: !!S.exprFace }; },
     stop() { cancelAnimationFrame(raf); },
     sm,
   };

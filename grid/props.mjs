@@ -27,18 +27,18 @@ export const PROPS = {
     col: Math.round(bodyCx - 3),
     row: 0,
   },
-  // working — an upright hammer at the right side (G=head, H=handle)
+  // working — a CLAW hammer: chunky metal head (with a glint) on a thinner handle (G=head, W=glint, H=handle)
   hammer: {
     sprite: G([
-      'GGGG',
-      'GGGG',
-      '.HH.',
-      '.HH.',
-      '.HH.',
-      '.HH.',
-      '.HH.',
+      '.GGGGG',
+      'GGGGGG',
+      'GWGGGG',
+      '..HH..',
+      '..HH..',
+      '..HH..',
+      '..HH..',
     ]),
-    col: Math.round(bodyCx + 8),
+    col: Math.round(bodyCx + 7),
     row: 15,
   },
   // searching — a magnifying glass held at the side (G=rim, W=glint, H=handle)
@@ -54,9 +54,10 @@ export const PROPS = {
     col: Math.round(bodyCx + 8),
     row: 15,
   },
-  // reading — an open book (W=pages, H=spine)
+  // reading — an OPEN book: white pages tenting up at a brown centre spine (W=pages, H=spine)
   book: {
     sprite: G([
+      '.WHW.',
       'WWHWW',
       'WWHWW',
       'WWHWW',
@@ -88,16 +89,16 @@ export const PROPS = {
     col: Math.round(bodyCx + 8),
     row: 16,
   },
-  // fetching — a globe (C=ocean, W=meridian highlight)
+  // fetching — a globe: ocean sphere with a bright meridian + equator cross (C=ocean, W=lines)
   globe: {
     sprite: G([
-      '.CC.',
-      'CCCC',
-      'CWWC',
-      'CCCC',
-      '.CC.',
+      '.CCCC.',
+      'CCWWCC',
+      'WWWWWW',
+      'CCWWCC',
+      '.CCCC.',
     ]),
-    col: Math.round(bodyCx + 8),
+    col: Math.round(bodyCx + 7),
     row: 15,
   },
   // asking permission — a question mark floating in the headroom (W=mark)

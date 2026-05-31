@@ -16,9 +16,14 @@
   .card { background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.06); border-radius: 14px; padding: 14px 14px 12px; text-align: center; }
   .card.ref { opacity: .62; border-style: dashed; }
   .card.hero { border-color: rgba(230,168,23,.35); background: rgba(230,168,23,.05); }
-  canvas { image-rendering: pixelated; display: block; margin: 0 auto 8px; }
+  .card.self { border-color: rgba(236,138,126,.4); background: rgba(236,138,126,.05); }
+  .row { display: flex; align-items: flex-end; justify-content: center; gap: 14px; margin-bottom: 8px; }
+  .tiny { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .tiny small { color: #4d556b; font-size: 9px; }
+  canvas { image-rendering: pixelated; display: block; }
   .name { color: #e6a817; font-size: 13px; letter-spacing: .04em; }
   .card.ref .name { color: #7c869c; }
+  .card.self .name { color: #ec8a7e; }
   .note { color: #7c869c; font-size: 11px; margin: 3px 0 7px; min-height: 26px; }
   .spec { color: #4d556b; font-size: 10.5px; line-height: 1.5; }
   .spec b { color: #8893aa; font-weight: 600; }
@@ -33,19 +38,20 @@
   import { render, sizeCanvas } from '/grid/engine.mjs';
   import { GRID, PALETTE, compose } from '/grid/creature.mjs';
 
-  // EDIT THIS per family. ref:true = greyed reference (today's face) for contrast.
-  const TITLE = 'family: DETERMINED — "an error isn’t sad; I’m on it"';
+  // EDIT THIS per family. Each card shows a big review render + a ~30px chip (real size).
+  const TITLE = 'family: EXTERNAL vs SELF — concerned (looks OUT) vs sheepish (looks AWAY, blushes)';
   const CANDIDATES = [
-    { name: 'sad (today)', ref: true, note: 'the old catch-all for any error', face: { eyes: 'open', brows: 'sad', mouth: 'frown' } },
-    { name: 'thinking (today)', ref: true, note: 'working / curious', face: { eyes: 'look_up', brows: 'one_raised', mouth: 'flat_skew' } },
-    { name: 'determined · open', hero: true, note: 'open eyes + furrowed brow + firm ’stache', face: { eyes: 'open', brows: 'determined', mouth: 'set' } },
-    { name: 'determined · focused', hero: true, note: 'narrowed, locked-in gaze', face: { eyes: 'focused', brows: 'determined', mouth: 'set' } },
-    { name: 'determined · intense', hero: true, note: 'high intensity → a bead of effort-sweat', face: { eyes: 'focused', brows: 'determined', mouth: 'set', sweat: true } },
-    { name: 'determined + hammer', hero: true, note: 'rolling up the sleeves (activity prop)', face: { eyes: 'open', brows: 'determined', mouth: 'set' }, props: ['hammer'] },
+    { name: 'sad (today)', ref: true, note: 'the old catch-all — too devastated for a routine setback', face: { eyes: 'open', brows: 'sad', mouth: 'frown' } },
+    { name: 'oops (today)', ref: true, note: 'old self-slip face', face: { eyes: 'open', brows: 'worried', mouth: 'awkward', sweat: true } },
+    { name: 'concerned · mild', hero: true, note: 'EXTERNAL: open eyes look out, worried brow, small mouth — watchful, not crushed', face: { eyes: 'open', brows: 'worried', mouth: 'small' } },
+    { name: 'concerned · worried', hero: true, note: 'EXTERNAL, higher arousal: brow up, frown — a real external setback', face: { eyes: 'open', brows: 'worried', mouth: 'frown' } },
+    { name: 'sheepish · A', self: true, note: 'SELF: eyes averted DOWN + worried brow + awkward ’stache + blush — "that was me"', face: { eyes: 'avert', brows: 'worried', mouth: 'awkward', blush: true } },
+    { name: 'sheepish · B (sweat)', self: true, note: 'SELF, higher: + a nervous sweat bead', face: { eyes: 'avert', brows: 'worried', mouth: 'awkward', blush: true, sweat: true } },
+    { name: 'sheepish · C (glance up)', self: true, note: 'SELF alt: glance up + small mouth + blush — bashful, caught', face: { eyes: 'look_up', brows: 'worried', mouth: 'small', blush: true } },
   ];
 
   const dpr = Math.max(1, window.devicePixelRatio || 1);
-  const CELL = 9;
+  const BIG = 9, MID = 3, TINY = 1;
   document.getElementById('sub').textContent = TITLE;
   const grid = document.getElementById('grid');
 
@@ -58,16 +64,29 @@
     return parts.join(' · ');
   }
 
+  function draw(face, props, cell) {
+    const cv = document.createElement('canvas');
+    const ctx = sizeCanvas(cv, GRID.w, GRID.h, cell, dpr);
+    render(ctx, compose(face, { props: props || [] }), PALETTE, { gridW: GRID.w, gridH: GRID.h, cell });
+    return cv;
+  }
+
   for (const c of CANDIDATES) {
     const el = document.createElement('div');
-    el.className = 'card' + (c.ref ? ' ref' : '') + (c.hero ? ' hero' : '');
-    const cv = document.createElement('canvas'); el.appendChild(cv);
+    el.className = 'card' + (c.ref ? ' ref' : '') + (c.hero ? ' hero' : '') + (c.self ? ' self' : '');
+    const row = document.createElement('div'); row.className = 'row';
+    row.appendChild(draw(c.face, c.props, BIG));
+    for (const [cell, lbl] of [[MID, '~90px'], [TINY, '~30px']]) {
+      const t = document.createElement('div'); t.className = 'tiny';
+      t.appendChild(draw(c.face, c.props, cell));
+      const s = document.createElement('small'); s.textContent = lbl; t.appendChild(s);
+      row.appendChild(t);
+    }
+    el.appendChild(row);
     const label = document.createElement('div'); label.className = 'name'; label.textContent = c.name; el.appendChild(label);
     const note = document.createElement('div'); note.className = 'note'; note.textContent = c.note || ''; el.appendChild(note);
     const sp = document.createElement('div'); sp.className = 'spec'; sp.innerHTML = specText(c.face); el.appendChild(sp);
     grid.appendChild(el);
-    const ctx = sizeCanvas(cv, GRID.w, GRID.h, CELL, dpr);
-    render(ctx, compose(c.face, { props: c.props || [] }), PALETTE, { gridW: GRID.w, gridH: GRID.h, cell: CELL });
   }
 </script>
 </body>

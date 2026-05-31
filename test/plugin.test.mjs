@@ -225,6 +225,16 @@ try {
     ok('hook returns fast — never stalls Claude Code', ms < 2000, `(${ms}ms)`);
   }
 
+  // ---- doctor detects a port mismatch (hooks on one port, daemon on another) ----
+  console.log('· doctor — flags a port mismatch (hooks vs running daemon)');
+  {
+    const settings = join(dir, 'mismatch.json');
+    await installToFile(settings, { port: port + 1, repoRoot: ROOT }); // hooks target port+1
+    process.env.ANIMAYTE_SETTINGS = settings;
+    const { problems, text } = await runDoctor(port); // but the daemon is on `port`
+    ok('doctor flags the port mismatch', /port mismatch/i.test(text) && problems >= 1);
+  }
+
   // ---- statusline feed respects ownership via injected session_id (CC's statusline has none) ----
   console.log('· statusline ownership — injected session_id gates the feed to the owner');
   {

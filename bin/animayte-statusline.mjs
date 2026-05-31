@@ -16,10 +16,15 @@ process.stdin.setEncoding('utf8');   // decode properly — don't corrupt a mult
 process.stdin.on('data', (d) => (s += d));
 process.stdin.on('end', () => {
   let j = {}; try { j = JSON.parse(s || '{}'); } catch {}
+  // Claude Code's statusline JSON has NO session_id (verified by capture: keys are just
+  // model/context_window/cost). Inject it from the env so the daemon's per-session ownership
+  // filter applies to the statusline too — otherwise, once a session owns the pet, its
+  // cost/effort/context feed would go dark (no session_id ⇒ filtered out).
+  if (!j.session_id && process.env.CLAUDE_CODE_SESSION_ID) j.session_id = process.env.CLAUDE_CODE_SESSION_ID;
 
   // forward to daemon (fire-and-forget, tiny timeout)
   try {
-    const data = Buffer.from(s || '{}');
+    const data = Buffer.from(JSON.stringify(j));
     const req = http.request(
       { host: '127.0.0.1', port: PORT, path: '/status', method: 'POST',
         headers: { 'content-type': 'application/json', 'content-length': data.length }, timeout: 350 },

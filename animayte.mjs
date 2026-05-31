@@ -57,6 +57,7 @@ let ownerSession = process.env.ANIMAYTE_SESSION || null;
 // Once a session owns the pet, require a MATCHING session_id — a payload with no session_id must
 // NOT slip through (that would silently re-open the cross-session bleed). No owner ⇒ accept all.
 const ownsEvent = (sid) => !ownerSession || sid === ownerSession;
+let lastSpec = null;   // the most recent FeatureSpec — re-sent on (re)connect so spec-aware renderers don't lose the rich face
 
 function broadcast(cmd) {
   const line = `data: ${JSON.stringify(cmd)}\n\n`;
@@ -74,6 +75,7 @@ function snapshotTo(res) {
   send({ cmd: 'fullness', value: state.fullness });
   send({ cmd: 'mood', value: state.mood });
   send({ cmd: 'moodLevel', value: state.moodLevel, label: state.moodLabel });
+  if (lastSpec) send({ cmd: 'express', spec: lastSpec });   // resync the rich FeatureSpec face
 }
 
 const setMood     = (value, ms) => { state.mood = value; state.updated = Date.now(); broadcast({ cmd: 'mood', value, ms }); applyMoodDrift(value); };
@@ -114,7 +116,7 @@ const removeBird  = () => { const b = state.birds.shift(); if (b) broadcast({ cm
 const hatch       = () => { if (state.phase !== 'alive') { state.phase = 'alive'; broadcast({ cmd: 'wake' }); } };
 const say         = (text, ms) => broadcast({ cmd: 'say', text, ms });
 const sleepPet    = () => { if (waitTimer) { clearTimeout(waitTimer); waitTimer = null; } state.phase = 'sleeping'; broadcast({ cmd: 'sleep' }); };
-const freshStart  = () => { state.phase = 'alive'; state.birds = []; state.fullness = 0; state.mood = 'idle'; moodMeter.reset(); state.moodLevel = 0; state.moodLabel = 'level'; broadcast({ cmd: 'reset' }); };
+const freshStart  = () => { state.phase = 'alive'; state.birds = []; state.fullness = 0; state.mood = 'idle'; moodMeter.reset(); state.moodLevel = 0; state.moodLabel = 'level'; lastSpec = null; lastSentimentText = ''; broadcast({ cmd: 'reset' }); };
 
 // context window size by model (2026): haiku=200k, opus/sonnet 4.x = 1M. Statusline overrides this.
 function windowFor(model) {
@@ -205,6 +207,7 @@ function applySpec(spec, ms = 3000) {
   setMood(spec.expression, ms);                      // legacy mood cmd — current renderers react
   if (spec.item && REACTION_FOR_ITEM[spec.item]) broadcast({ cmd: 'react', name: REACTION_FOR_ITEM[spec.item] });  // RETIRE with the bridge
   const { _text, ...clean } = spec;
+  lastSpec = clean;                                  // remembered so snapshotTo can resync it on (re)connect
   broadcast({ cmd: 'express', spec: clean });        // the full FeatureSpec for spec-aware renderers (already authoritative)
   return true;
 }
@@ -236,7 +239,7 @@ function isDuplicateTool(name, ev) {
 // interleave their awaited transcript reads and let a STALE context/sentiment land after a
 // fresher one. Chaining through one promise keeps state mutations strictly in arrival order.
 let evQueue = Promise.resolve();
-const enqueueEvent = (ev) => (evQueue = evQueue.then(() => handleEvent(ev)).catch(() => {}));
+const enqueueEvent = (ev) => (evQueue = evQueue.then(() => handleEvent(ev)).catch((e) => console.error('animayte: event handler error —', (e && e.message) || e)));
 
 // ---- hook event -> pet behavior (+ real context + sentiment from agent text) ----
 async function handleEvent(ev) {
@@ -321,6 +324,7 @@ function handleStatus(j) {
   if (typeof cw.used_percentage === 'number') { state.ctxPct = Math.round(cw.used_percentage); if (!reliefActive) setFullness(Math.max(0, Math.min(1, cw.used_percentage / 100))); lastStatusCtxAt = Date.now(); }
   if (cw.context_window_size) state.ctxWindow = cw.context_window_size;
   if (typeof cw.total_input_tokens === 'number') state.ctxTokens = cw.total_input_tokens;
+  else if (cw.current_usage) state.ctxTokens = (cw.current_usage.input_tokens || 0) + (cw.current_usage.cache_creation_input_tokens || 0) + (cw.current_usage.cache_read_input_tokens || 0);
   if (j.model) state.model = j.model.display_name || j.model.id || state.model;
   if (j.cost) { state.costUsd = j.cost.total_cost_usd ?? state.costUsd; state.linesAdded = j.cost.total_lines_added ?? state.linesAdded; state.linesRemoved = j.cost.total_lines_removed ?? state.linesRemoved; }
   if (j.rate_limits) { const r = j.rate_limits.five_hour || j.rate_limits.seven_day; if (r && typeof r.used_percentage === 'number') state.rateLimitPct = Math.round(r.used_percentage); }
@@ -474,10 +478,15 @@ if (moodDecay.unref) moodDecay.unref();   // don't keep the process alive just f
 // On EADDRINUSE, retry a few times before giving up: on `restart` the just-killed daemon may
 // not have released the port yet (async socket teardown), and exiting immediately would leave
 // no daemon. After the retries, assume a real daemon is already running and exit cleanly.
+const onListening = () => {
+  console.log(`\n  🐣 animayte daemon →  http://127.0.0.1:${PORT}`);
+  console.log(`     context % is now REAL (from the transcript usage object).\n`);
+};
 let listenRetries = 8;
 server.on('error', (err) => {
   if (err && err.code === 'EADDRINUSE') {
-    if (--listenRetries > 0) { setTimeout(() => { try { server.close(); } catch {} server.listen(PORT, '127.0.0.1'); }, 250); return; }
+    // on `restart` the just-killed daemon may not have released the port yet — retry before giving up
+    if (--listenRetries > 0) { setTimeout(() => server.listen(PORT, '127.0.0.1', onListening), 250); return; }
     console.error(`\n  🐣 animayte: port ${PORT} is already in use — a daemon is probably already running.`);
     console.error(`     • open it:        http://127.0.0.1:${PORT}`);
     console.error(`     • restart it:     bin/animayte restart`);
@@ -488,7 +497,4 @@ server.on('error', (err) => {
   process.exit(1);
 });
 
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`\n  🐣 animayte daemon →  http://127.0.0.1:${PORT}`);
-  console.log(`     context % is now REAL (from the transcript usage object).\n`);
-});
+server.listen(PORT, '127.0.0.1', onListening);

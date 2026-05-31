@@ -16,7 +16,7 @@
  * The pure functions (applyInstall / applyUninstall) take settings-in → settings-out so
  * test/install.test.mjs can round-trip them without touching the real settings file.
  */
-import { readFile, writeFile, mkdir, copyFile } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, copyFile, rename } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
@@ -133,12 +133,19 @@ export function settingsPath() {
   return process.env.ANIMAYTE_SETTINGS || join(homedir(), '.claude', 'settings.json');
 }
 export async function readSettings(path) {
+  let raw;
   try {
-    const raw = await readFile(path, 'utf8');
-    return raw.trim() ? JSON.parse(raw) : {};
+    raw = await readFile(path, 'utf8');
   } catch (e) {
     if (e && e.code === 'ENOENT') return {};
     throw e;
+  }
+  if (!raw.trim()) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // a clear, actionable error instead of a raw SyntaxError — and we never write over it
+    throw new Error(`${path} is not valid JSON — fix or remove it before installing (it was left untouched).`);
   }
 }
 async function backupSettings(path) {
@@ -149,24 +156,30 @@ async function backupSettings(path) {
   await copyFile(path, bak);
   return bak;
 }
-const writeSettings = (path, obj) => writeFile(path, JSON.stringify(obj, null, 2) + '\n');
+// atomic write (temp + rename) — a crash or a concurrent writer can't leave a truncated file
+async function writeSettings(path, obj) {
+  await mkdir(dirname(path), { recursive: true });
+  const tmp = `${path}.animayte.tmp`;
+  await writeFile(tmp, JSON.stringify(obj, null, 2) + '\n');
+  await rename(tmp, path);
+}
+const unchanged = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 export async function installToFile(path, opts = {}) {
   const before = await readSettings(path);
-  const backup = await backupSettings(path);
   const { settings, warnings } = applyInstall(before, opts);
-  await mkdir(dirname(path), { recursive: true });
+  // idempotent in I/O too: if nothing actually changes, don't churn a backup or rewrite the file
+  if (existsSync(path) && unchanged(before, settings)) return { path, backup: null, warnings, settings };
+  const backup = await backupSettings(path);
   await writeSettings(path, settings);
   return { path, backup, warnings, settings };
 }
 export async function uninstallFromFile(path) {
   const before = await readSettings(path);
-  const backup = await backupSettings(path);
   const { settings, changed } = applyUninstall(before);
-  if (existsSync(path) || changed) {
-    await mkdir(dirname(path), { recursive: true });
-    await writeSettings(path, settings);
-  }
+  if (!changed) return { path, backup: null, settings, changed: false };  // nothing of ours present → no-op
+  const backup = await backupSettings(path);
+  await writeSettings(path, settings);
   return { path, backup, settings, changed };
 }
 

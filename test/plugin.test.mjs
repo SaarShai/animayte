@@ -14,7 +14,7 @@ import net from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { doctor, installToFile } from '../bin/animayte-install.mjs';
+import { doctor, installToFile, hookCommand } from '../bin/animayte-install.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 let pass = 0, fail = 0; const fails = [];
@@ -159,6 +159,103 @@ try {
     await post(port, '/claim', { session_id: 'SESS_C' });
     h = await getJSON(port, '/health');
     ok('re-claim transfers ownership to a new session', h.owner === 'SESS_C');
+  }
+
+  // ---- ownership requires a session_id once owned (a no-id payload must NOT slip through) ----
+  console.log('· ownership — a payload with no session_id is rejected while owned');
+  {
+    await post(port, '/claim', { session_id: 'OWN_X' });
+    await post(port, '/event', { hook_event_name: 'UserPromptSubmit', prompt: 'this is amazing!' }); // no session_id
+    const h = await getJSON(port, '/health');
+    ok('no-session_id event ignored while owned (mood stays idle)', h.state.mood === 'idle');
+  }
+
+  // ---- error fidelity: only a STRUCTURED is_error is an error (regression guard for the
+  //      "every Bash has a stderr key → flagged as error" P0) ----
+  console.log('· error fidelity — successful Bash is not an error; only structured is_error is');
+  {
+    await post(port, '/claim', { session_id: 'ERR_S' });
+    // a SUCCESSFUL Bash: object tool_response ALWAYS has a stderr key, and output mentions "error"
+    await post(port, '/event', { hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_response: { stdout: '0 errors found, build passed', stderr: '', interrupted: false }, tool_use_id: 'toolu_ok', session_id: 'ERR_S' });
+    let h = await getJSON(port, '/health');
+    ok('successful Bash (stderr key + "error" in output) is NOT flagged sad', h.state.mood !== 'sad');
+    await post(port, '/event', { hook_event_name: 'PostToolUse', tool_name: 'mcp', tool_response: { is_error: true, content: 'boom' }, tool_use_id: 'toolu_err', session_id: 'ERR_S' });
+    h = await getJSON(port, '/health');
+    ok('a structured is_error:true IS flagged sad', h.state.mood === 'sad');
+  }
+
+  // ---- tool_use_id dedup: a double-delivered tool event counts once ----
+  console.log('· dedup — same tool_use_id twice spawns one bird; distinct ids spawn two');
+  {
+    await post(port, '/claim', { session_id: 'DUP_S' });
+    const ev = { hook_event_name: 'PreToolUse', tool_name: 'Task', tool_input: { description: 'h' }, tool_use_id: 'toolu_same', session_id: 'DUP_S' };
+    await post(port, '/event', ev);
+    await post(port, '/event', ev); // exact duplicate (double-wired hook)
+    let h = await getJSON(port, '/health');
+    ok('duplicate tool_use_id → ONE bird', h.state.birds.length === 1);
+    await post(port, '/event', { ...ev, tool_use_id: 'toolu_other', tool_input: { description: 'h2' } });
+    h = await getJSON(port, '/health');
+    ok('distinct tool_use_id → a second bird', h.state.birds.length === 2);
+  }
+
+  // ---- transport broadcasts cmd:'express' with the full FeatureSpec over SSE (brief feature) ----
+  console.log('· transport — broadcasts cmd:express with a spec on a sentiment event');
+  {
+    await post(port, '/claim', { session_id: 'EXP_S' });
+    let raw = '';
+    const sse = http.get({ host: '127.0.0.1', port, path: '/events' }, (r) => r.on('data', (c) => (raw += c)));
+    sse.on('error', () => {});
+    await new Promise((res) => setTimeout(res, 150));
+    await post(port, '/event', { hook_event_name: 'UserPromptSubmit', prompt: 'this is absolutely amazing, you nailed it!', session_id: 'EXP_S' });
+    await new Promise((res) => setTimeout(res, 250));
+    sse.destroy();
+    const exprs = raw.split('\n').filter((l) => l.startsWith('data: ')).map((l) => { try { return JSON.parse(l.slice(6)); } catch { return null; } }).filter(Boolean).filter((c) => c.cmd === 'express');
+    ok('an express command was broadcast', exprs.length >= 1);
+    ok('express carries a FeatureSpec (expression + numeric valence)', exprs.some((e) => e.spec && typeof e.spec.expression === 'string' && typeof e.spec.valence === 'number'));
+  }
+
+  // ---- fire-and-forget: the REAL hook curl returns fast + exit 0 even with NO daemon (no CC stall) ----
+  console.log('· hooks — fire-and-forget: real curl exits 0 fast against a down daemon');
+  {
+    const deadPort = await freePort(); // nothing is listening here
+    const t0 = Date.now();
+    const r = await run('sh', ['-c', hookCommand(deadPort)], {}, JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'Bash' }));
+    const ms = Date.now() - t0;
+    ok('hook exits 0 even when the daemon is down (|| true)', r.code === 0, `(code ${r.code})`);
+    ok('hook returns fast — never stalls Claude Code', ms < 2000, `(${ms}ms)`);
+  }
+
+  // ---- statusline feed respects ownership via injected session_id (CC's statusline has none) ----
+  console.log('· statusline ownership — injected session_id gates the feed to the owner');
+  {
+    await post(port, '/claim', { session_id: 'SL_OWNER' });
+    const sl = join(ROOT, 'bin', 'animayte-statusline.mjs');
+    await run(process.execPath, [sl], { ANIMAYTE_PORT: String(port), CLAUDE_CODE_SESSION_ID: 'SL_OWNER' }, JSON.stringify({ context_window: { used_percentage: 37 } }));
+    await new Promise((r) => setTimeout(r, 200));
+    let h = await getJSON(port, '/health');
+    ok("owner's statusline updates ctx% (session_id injected from env)", h.state.ctxPct === 37);
+    await run(process.execPath, [sl], { ANIMAYTE_PORT: String(port), CLAUDE_CODE_SESSION_ID: 'SL_OTHER' }, JSON.stringify({ context_window: { used_percentage: 88 } }));
+    await new Promise((r) => setTimeout(r, 200));
+    h = await getJSON(port, '/health');
+    ok("a non-owner session's statusline is ignored (ctx stays 37)", h.state.ctxPct === 37);
+  }
+
+  // ---- ownership via ANIMAYTE_SESSION env: the daemon is owned from birth (survives restart) ----
+  console.log('· ownership — ANIMAYTE_SESSION env owns the daemon from birth (no /claim needed)');
+  {
+    const p2 = await freePort();
+    const d2 = spawn(process.execPath, [join(ROOT, 'animayte.mjs')], { env: { ...process.env, ANIMAYTE_PORT: String(p2), ANIMAYTE_SESSION: 'ENV_OWNER' }, stdio: 'ignore' });
+    await waitHealth(p2);
+    try {
+      let h = await getJSON(p2, '/health');
+      ok('daemon is born owned by ANIMAYTE_SESSION', h.owner === 'ENV_OWNER');
+      await post(p2, '/event', { hook_event_name: 'UserPromptSubmit', prompt: 'amazing!', session_id: 'INTRUDER' });
+      h = await getJSON(p2, '/health');
+      ok('a foreign event is rejected before any /claim (no bleed window on (re)start)', h.state.mood === 'idle');
+      await post(p2, '/event', { hook_event_name: 'UserPromptSubmit', prompt: 'amazing!', session_id: 'ENV_OWNER' });
+      h = await getJSON(p2, '/health');
+      ok("the env-owner's event takes effect", h.state.mood === 'excited');
+    } finally { await stop(d2); }
   }
 } finally {
   await stop(daemon);

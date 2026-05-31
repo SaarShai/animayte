@@ -86,6 +86,16 @@ try {
   ok('new connection snapshots the live mood', driven.events.some((e) => e.cmd === 'mood' && e.value === 'excited'));
   ok('new connection snapshots the live fullness', driven.events.some((e) => e.cmd === 'fullness' && Math.abs(e.value - 0.5) < 1e-9));
 
+  // 2b) drive a FeatureSpec (express), then a NEW connection must RESYNC it — so a spec-aware
+  //     renderer keeps the rich face across a reconnect instead of falling back to the mood face.
+  await new Promise((resolve) => {
+    const data = Buffer.from(JSON.stringify({ hook_event_name: 'UserPromptSubmit', prompt: 'this is amazing, you nailed it!' }));
+    const req = http.request({ host: '127.0.0.1', port, path: '/event', method: 'POST', headers: { 'content-type': 'application/json', 'content-length': data.length } }, (r) => { r.resume(); r.on('end', resolve); });
+    req.on('error', resolve); req.write(data); req.end();
+  });
+  const exp = await collectSSE(port, 350);
+  ok('a new connection resyncs the last FeatureSpec (cmd:express)', exp.events.some((e) => e.cmd === 'express' && e.spec && typeof e.spec.expression === 'string'));
+
   // 3) kill + restart on the SAME port → a reconnection succeeds with a FRESH snapshot
   await stopDaemon(child);
   const down = await collectSSE(port, 200);

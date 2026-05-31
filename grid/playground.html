@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>animayte · grid playground</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: start center;
+    gap: 20px; padding: 32px;
+    background: radial-gradient(1200px 600px at 50% -10%, #1b2440, #0a0e1a 70%);
+    font: 13px/1.4 ui-monospace, "SF Mono", Menlo, monospace; color: #aeb6c8;
+  }
+  h1 { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: #6f7a93; margin: 0; font-weight: 600; }
+  .stage { position: relative; padding: 18px 36px; border-radius: 16px;
+    background: rgba(255,255,255,.015); box-shadow: inset 0 0 0 1px rgba(255,255,255,.05); }
+  canvas { image-rendering: pixelated; display: block; }
+  .now { font-size: 12px; color: #e6a817; min-height: 16px; text-align: center; letter-spacing: .04em; }
+  .grid-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: min(560px, 92vw); }
+  .grid-btns.props { grid-template-columns: repeat(3, 1fr); width: min(420px, 92vw); }
+  button { font: inherit; color: #cdd5e6; background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 8px 6px; cursor: pointer; text-align: center; }
+  button:hover { background: rgba(230,168,23,.14); border-color: rgba(230,168,23,.4); }
+  button.on { background: rgba(230,168,23,.22); border-color: #e6a817; color: #fff; }
+  .panel { display: grid; grid-template-columns: auto 1fr auto; gap: 8px 14px; align-items: center; width: min(420px, 92vw); }
+  .panel label { color: #7c869c; }
+  .panel output { color: #e6a817; text-align: right; min-width: 36px; font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: #e6a817; }
+  .lbl { font-size: 11px; color: #59617a; letter-spacing: .1em; text-transform: uppercase; }
+  .bar { display: flex; gap: 8px; align-items: center; }
+</style>
+</head>
+<body>
+  <h1>animayte · grid · phase 2 — expressions</h1>
+  <div class="stage"><canvas id="c"></canvas></div>
+  <div class="now" id="now">neutral 🙂</div>
+
+  <div class="lbl">expressions (from lib/expressions.mjs)</div>
+  <div class="grid-btns" id="exprs"></div>
+
+  <div class="lbl">props</div>
+  <div class="grid-btns props" id="props"></div>
+
+  <div class="bar">
+    <button id="cycle">▶ cycle all</button>
+    <button id="bg">toggle bg</button>
+  </div>
+
+  <div class="panel">
+    <label for="cell">cell</label>
+    <input id="cell" type="range" min="4" max="16" step="1" value="9" /><output id="cellv">9</output>
+    <label for="amp">breathe</label>
+    <input id="amp" type="range" min="0" max="0.14" step="0.005" value="0.045" /><output id="ampv">0.045</output>
+  </div>
+
+<script type="module">
+  import { idleTransform, render, sizeCanvas } from '/grid/engine.mjs';
+  import { GRID, PALETTE, compose } from '/grid/creature.mjs';
+  import { EXPRESSIONS, appleFor } from '/lib/expressions.mjs';
+  import { PROPS } from '/grid/props.mjs';
+
+  const canvas = document.getElementById('c');
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  let ctx, cell = 9;
+  const cfg = { amp: 0.045 };
+
+  let current = EXPRESSIONS.find((e) => e.id === 'neutral') || EXPRESSIONS[0];
+  const activeProps = new Set();
+
+  const resize = () => { ctx = sizeCanvas(canvas, GRID.w, GRID.h, cell, dpr); };
+  resize();
+
+  // expression buttons (driven by the real dictionary)
+  const exprWrap = document.getElementById('exprs');
+  const exprBtns = {};
+  for (const ex of EXPRESSIONS) {
+    const b = document.createElement('button');
+    b.textContent = `${ex.id} ${ex.apple}`;
+    b.onclick = () => setExpr(ex);
+    exprWrap.appendChild(b);
+    exprBtns[ex.id] = b;
+  }
+  function setExpr(ex) {
+    current = ex;
+    document.getElementById('now').textContent = `${ex.id} ${appleFor(ex.id)}`;
+    for (const id in exprBtns) exprBtns[id].classList.toggle('on', id === ex.id);
+  }
+
+  // prop toggles
+  const propWrap = document.getElementById('props');
+  for (const name of Object.keys(PROPS)) {
+    const b = document.createElement('button');
+    b.textContent = name;
+    b.onclick = () => {
+      if (activeProps.has(name)) activeProps.delete(name); else activeProps.add(name);
+      b.classList.toggle('on', activeProps.has(name));
+    };
+    propWrap.appendChild(b);
+  }
+
+  // controls
+  const bind = (id, outId, fn) => {
+    const el = document.getElementById(id), out = document.getElementById(outId);
+    const upd = () => { out.textContent = el.value; fn(parseFloat(el.value)); };
+    el.addEventListener('input', upd); upd();
+  };
+  bind('cell', 'cellv', (v) => { cell = v; resize(); });
+  bind('amp', 'ampv', (v) => { cfg.amp = v; });
+  document.getElementById('bg').onclick = () => {
+    document.body.style.background = document.body.style.background.includes('radial') ? '#eef0f3' : '';
+  };
+
+  // auto-cycle through every expression
+  let cycling = false, cycleIdx = 0, cycleNextAt = 0;
+  document.getElementById('cycle').onclick = (e) => {
+    cycling = !cycling; e.target.classList.toggle('on', cycling);
+    e.target.textContent = cycling ? '⏸ cycling' : '▶ cycle all';
+    cycleNextAt = 0;
+  };
+
+  setExpr(current);
+  let t0 = performance.now();
+  function frame(now) {
+    if (cycling && now >= cycleNextAt) {
+      setExpr(EXPRESSIONS[cycleIdx % EXPRESSIONS.length]);
+      cycleIdx++; cycleNextAt = now + 1400;
+    }
+    const tf = idleTransform(now - t0, { breatheAmp: cfg.amp });
+    const cells = compose(current.face, { blink: tf.blink, props: [...activeProps] });
+    render(ctx, cells, PALETTE, { gridW: GRID.w, gridH: GRID.h, cell, transform: tf });
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>
+</body>
+</html>

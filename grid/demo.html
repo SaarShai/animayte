@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>animayte · grid · live</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: start center; gap: 16px; padding: 28px 24px 48px;
+    background: radial-gradient(1200px 600px at 50% -10%, #1b2440, #0a0e1a 70%);
+    font: 13px/1.4 ui-monospace, "SF Mono", Menlo, monospace; color: #aeb6c8; }
+  h1 { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: #6f7a93; margin: 0; font-weight: 600; }
+  .stage { position: relative; padding: 16px 30px; border-radius: 16px; background: rgba(255,255,255,.015); box-shadow: inset 0 0 0 1px rgba(255,255,255,.05); }
+  canvas { image-rendering: pixelated; display: block; }
+  .say { min-height: 18px; font-size: 13px; color: #e6a817; text-align: center; letter-spacing: .02em; }
+  .lbl { font-size: 11px; color: #59617a; letter-spacing: .1em; text-transform: uppercase; margin-top: 4px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: 620px; }
+  button { font: inherit; color: #cdd5e6; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 7px 11px; cursor: pointer; }
+  button:hover { background: rgba(230,168,23,.14); border-color: rgba(230,168,23,.4); }
+  button.primary { background: rgba(230,168,23,.22); border-color: #e6a817; color: #fff; }
+  .panel { display: grid; grid-template-columns: auto 1fr auto; gap: 8px 14px; align-items: center; width: min(440px, 92vw); }
+  .panel label { color: #7c869c; } .panel output { color: #e6a817; text-align: right; min-width: 40px; font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: #e6a817; }
+  .state { font-size: 11px; color: #4d556b; }
+</style>
+</head>
+<body>
+  <h1>animayte · grid · phase 3 — live brain</h1>
+  <div class="stage"><canvas id="c"></canvas></div>
+  <div class="say" id="say">idle</div>
+
+  <div class="row"><button id="play" class="primary">▶ play demo</button><button id="reset">reset</button><button id="sleep">sleep</button><button id="wake">wake</button></div>
+
+  <div class="lbl">moods</div>
+  <div class="row" id="moods"></div>
+
+  <div class="lbl">signals</div>
+  <div class="row"><button data-b="add">+ sub-agent</button><button data-b="rem">− sub-agent</button><button id="relief">/compact relief</button></div>
+
+  <div class="panel">
+    <label for="full">context</label><input id="full" type="range" min="0" max="1" step="0.01" value="0" /><output id="fullv">0%</output>
+    <label for="cell">cell</label><input id="cell" type="range" min="4" max="14" step="1" value="10" /><output id="cellv">10</output>
+  </div>
+  <div class="state" id="state"></div>
+
+<script type="module">
+  import { createGridRuntime } from '/grid/runtime.mjs';
+
+  const pet = createGridRuntime(document.getElementById('c'), { cell: 10 });
+  window.pet = pet; // dev affordance — drive/inspect from the console or tests
+  const sayEl = document.getElementById('say');
+  const say = (t) => { sayEl.textContent = t; };
+
+  const MOODS = ['neutral','thinking','working','listening','happy','excited','oops','bashful','sad','tired'];
+  const moodWrap = document.getElementById('moods');
+  for (const m of MOODS) { const b = document.createElement('button'); b.textContent = m; b.onclick = () => { pet.setMood(m); say(m); }; moodWrap.appendChild(b); }
+
+  document.querySelector('[data-b="add"]').onclick = () => pet.addBird('task');
+  document.querySelector('[data-b="rem"]').onclick = () => pet.removeBird();
+  document.getElementById('relief').onclick = () => { pet.relief(); say('😮‍💨 compacted — relief'); };
+  document.getElementById('sleep').onclick = () => { pet.sleep(); say('💤 sleeping'); };
+  document.getElementById('wake').onclick = () => { pet.wake(); say('☀️ awake'); };
+  document.getElementById('reset').onclick = () => { pet.reset(); say('idle'); full.value = 0; fullv.textContent = '0%'; };
+
+  const full = document.getElementById('full'), fullv = document.getElementById('fullv');
+  full.oninput = () => { pet.setFullness(parseFloat(full.value)); fullv.textContent = Math.round(full.value * 100) + '%'; };
+  const cell = document.getElementById('cell'), cellv = document.getElementById('cellv');
+  cell.oninput = () => { pet.resize(parseInt(cell.value)); cellv.textContent = cell.value; };
+
+  // live state readout
+  setInterval(() => { const s = pet.state; document.getElementById('state').textContent = `mood:${s.mood} · expr:${s.expression} · clip:${s.clip} · kind:${s.kind} · birds:${s.birds} · full:${Math.round(s.fullness*100)}%`; }, 200);
+
+  // ── scripted demo — mirrors the daemon's /demo arc ──
+  let running = false;
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  async function runDemo(btn) {
+    if (running) return; running = true; btn.classList.add('primary'); btn.textContent = '… playing';
+    const setBirds = (n) => { pet.clearBirds(); for (let i = 0; i < n; i++) pet.addBird('task ' + (i + 1)); };
+    try {
+      pet.reset(); say('idle'); full.value = 0; fullv.textContent = '0%'; await wait(1500);
+      pet.setMood('happy'); say('👋 hi! watch my face change…'); await wait(3600);
+      pet.setMood('listening'); say('👂 listening…'); await wait(3200);
+      pet.setMood('working'); pet.setFullness(0.25); full.value = 0.25; fullv.textContent = '25%'; say('⚙️ working on it…'); await wait(3600);
+      pet.setMood('happy'); say('✅ that worked!'); await wait(3400);
+      pet.setMood('excited'); say('🎉 found a great solution!'); await wait(3600);
+      pet.setMood('oops'); say('😬 oops — a mistake'); await wait(3400);
+      pet.setMood('bashful'); say('🙈 sorry, my bad — fixing it'); await wait(3400);
+      pet.setMood('working'); setBirds(3); pet.setFullness(0.5); full.value = 0.5; fullv.textContent = '50%'; say('🐦 spawning 3 helpers…'); await wait(4200);
+      setBirds(0); pet.setMood('happy'); say('✅ helpers done!'); await wait(3400);
+      pet.setMood('tired'); pet.setFullness(0.9); full.value = 0.9; fullv.textContent = '90%'; say('😪 context almost full…'); await wait(4000);
+      pet.relief(); pet.setFullness(0.3); full.value = 0.3; fullv.textContent = '30%'; pet.setMood('excited'); say('😌 phew — compacted, so light!'); await wait(3800);
+      pet.setMood('idle'); say('🌿 that’s the full range!');
+    } finally { running = false; btn.textContent = '▶ play demo'; }
+  }
+  document.getElementById('play').onclick = (e) => runDemo(e.target);
+</script>
+</body>
+</html>

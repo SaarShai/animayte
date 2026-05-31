@@ -319,7 +319,10 @@
           await loadScript('/assets/vendor/rive/rive.js');
           window.rive.RuntimeLoader.setWasmUrl('/assets/vendor/rive/rive.wasm');
           const mod=await import('/lib/rive/driver.mjs');
-          ctrl=await mod.createRiveController(window.rive,{ canvas:cv, src:riveSrc, reduceMotion });
+          const C=await import('/lib/rive/contract.mjs');
+          // pass the contract's artboard + state machine so Rive INSTANCES them on load
+          // (inputs are then reliably available; the lab auto-picks for arbitrary .riv files)
+          ctrl=await mod.createRiveController(window.rive,{ canvas:cv, src:riveSrc, reduceMotion, artboard:C.ARTBOARD, stateMachine:C.STATE_MACHINE });
           const pill=$('livePill'); if(pill) pill.title='engine: Rive';
         } else {
           const mod=await import('/lib/anim/runtime.mjs');

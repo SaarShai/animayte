@@ -31,16 +31,29 @@
   Verified non-regressive (no `.riv` → the slime renders as before).
 - **`test/rive.test.mjs`** — 54 checks over the contract/mapping. `npm test`: **796 checks green**.
 - **`docs/rive-contract.md`** — the spec a designer builds the `.riv` to + the native-Swift hosting path.
+- **`tools/rive-export.mjs`** (`npm run rive:export`) → **`rive-export/`**: `build-spec.json` (our WHOLE library —
+  8 expressions, 18 clips, 12 inputs, palettes, props, the SM graph — as a Rive build plan) + `slime-body.svg`
+  / `bean-body.svg` (our silhouettes as import-ready vector art). This is "import/adapt our library" without the editor.
+- **`docs/rive-build-guide.md`** — step-by-step editor build FROM that export (artboard → import the SVG →
+  faces → palettes → the `animayte` state machine + 12 inputs → wire the graph → export `pet.riv`). ~half-day build.
+- **`desktop/rive/`** — Swift SPM package (`AnimaytePetRive`) that hosts the `.riv` in a floating macOS window
+  (reuses the transparent/click-through window setup) and drives the contract inputs from `/health`. *Code complete;
+  untested-compile until a `.riv` exists + the Rive SPM dep is fetched (`cd desktop/rive && swift build -c release`).*
+- **More tests**: `test/rive.test.mjs` now 66 checks (mapping + build-spec coverage + SVG); integration +5 (Rive
+  asset MIME, driver served, no-`.riv`→404 fallback). `npm test` green: **827 checks**.
 
 ## What's pending — ⏳ (needs a human + the proprietary Rive editor)
 
-1. **Author the character `.riv`** (`pets/<name>/pet.riv` for slime + bean) in the Rive editor, exposing the
-   §2 inputs from `docs/rive-contract.md`. *This is the one thing an agent can't do — the editor is a visual
-   SaaS tool.* The moment the file lands in the pack, `animayte.html` uses it automatically.
-2. **Wire `rive-ios` into `desktop/AnimaytePet.swift`** (host the Rive view in the existing floating window;
-   set the same inputs from `/health`). Follow-up once a `.riv` exists (research-recommended path; avoids Tauri).
-3. **De-risk** (from the research's open question): profile a real `.riv`'s idle CPU on macOS Metal before
-   fully committing the native path.
+1. **Author the character `.riv`** (`pets/<name>/pet.riv` for slime + bean) in the Rive editor, following
+   `docs/rive-build-guide.md` + `rive-export/`. *This is the one thing an agent can't do — the editor is a
+   visual SaaS tool, and a hand-rolled binary `.riv` would be crude (defeating the point of adopting Rive).*
+   The moment the file lands in the pack, `animayte.html` uses it automatically.
+2. **Compile + run `desktop/rive/`** once a `.riv` exists (`swift build`; the code is written). Then optionally
+   add SSE streaming (vs /health polling) for crisper trigger timing.
+3. **De-risk profile** (research open question): on a Mac, run the `.riv` in `desktop/rive/` and in a browser tab,
+   open Activity Monitor / Xcode Instruments (Time Profiler), and confirm **idle CPU is low** (Rive self-pauses
+   when no looping animation/SM transition is active) and active CPU is acceptable for an always-on pet. ✅ if low →
+   commit the native path; ❌ if high → keep Canvas2D / consider PixiJS. (Can't be measured from here — needs a real `.riv` + Mac.)
 
 ## How to try it now
 - `npm start` → open `http://127.0.0.1:4321/rive-lab.html` — see Rive render the sample, driven by this session.

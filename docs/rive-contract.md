@@ -81,11 +81,12 @@ the fullness swell without baking states. If you author a View Model, expose `ti
 
 Two paths — the research recommends the first (avoids all of Tauri's macOS transparency/click-through friction):
 
-1. **Native Apple runtime (recommended).** Rive ships `rive-ios` (AppKit + SwiftUI, macOS ≥13.1). Keep the
-   existing `desktop/AnimaytePet.swift` floating window (already transparent / always-on-top / click-through)
-   and host a `RiveViewModel`/`RiveView` inside it; poll `/health` (or read SSE) and set the same inputs via
-   the Swift API (`setInput(_:value:)` / `triggerInput(_:)`) using the indices in §2. One `.riv` serves both
-   the native window and the web page.
+1. **Native Apple runtime (recommended).** Rive ships `rive-ios` (AppKit + SwiftUI, macOS ≥13.1). A starting
+   implementation is in **`desktop/rive/`** (an SPM package): it reuses the `desktop/AnimaytePet.swift` floating
+   window setup (transparent / always-on-top / click-through), hosts a `RiveViewModel` loaded from the daemon's
+   `/pets/<pet>/pet.riv`, and sets the contract inputs from `/health` via `setInput(_:value:)` / `triggerInput(_:)`
+   (indices mirror §2). Build: `cd desktop/rive && swift build -c release` (fetches the Rive SPM dep). One `.riv`
+   serves both the native window and the web page. *(Untested-compile until a real `.riv` exists + the Rive dep is fetched.)*
 2. **Web in a wrapper.** Load `animayte.html` (which already prefers Rive) inside a `WKWebView` or Tauri/Electron
    window. Simpler to ship, but macOS transparency/click-through needs extra work (documented in `engine-research.md`).
 

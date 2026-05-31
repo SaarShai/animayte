@@ -204,6 +204,18 @@ try {
   s = await health();
   ok('daemon healthy after rapid mood thrash + relief settle', s && typeof s.mood === 'string' && s.phase === 'alive');
 
+  // 13. Rive assets served with correct MIME (the engine + .riv must load in the browser)
+  const wasmRes = await fetch(BASE + '/assets/vendor/rive/rive.wasm');
+  check('rive.wasm → application/wasm (stream-compilable)', wasmRes.headers.get('content-type'), 'application/wasm');
+  ok('rive.wasm has real bytes', (await wasmRes.arrayBuffer()).byteLength > 500_000);
+  const rivRes = await fetch(BASE + '/assets/vendor/rive/sample.riv');
+  check('.riv → application/octet-stream', rivRes.headers.get('content-type'), 'application/octet-stream');
+  const driverRes = await fetch(BASE + '/lib/rive/driver.mjs');
+  check('the Rive driver module is served as JS', driverRes.headers.get('content-type'), 'text/javascript');
+  // no pet.riv yet → HEAD 404 → the page falls back to Canvas2D (the safe default)
+  const noRiv = await fetch(BASE + '/pets/slime/pet.riv', { method: 'HEAD' });
+  ok('no pets/slime/pet.riv yet → 404 (page falls back to Canvas2D)', noRiv.status === 404, `(got ${noRiv.status})`);
+
 } catch (e) {
   fail++; fails.push('  ✗ threw: ' + e.message + '\n' + (e.stack || ''));
 } finally {

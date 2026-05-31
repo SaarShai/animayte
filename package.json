@@ -13,6 +13,7 @@
     "sounds": "node tools/make-sounds.mjs",
     "preview": "node tools/preview.mjs",
     "simulate": "node tools/simulate.mjs",
+    "rive:export": "node tools/rive-export.mjs",
     "conformance:update": "node test/conformance.mjs --update"
   },
   "engines": { "node": ">=18" }

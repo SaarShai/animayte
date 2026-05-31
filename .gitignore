@@ -1,4 +1,5 @@
 desktop/.build/
+desktop/rive/.build/
 *.log
 node_modules/
 .DS_Store

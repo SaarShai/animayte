@@ -12,6 +12,8 @@ import {
   commandToOps, moodToIndex, reactionToToolIndex, nextBirds,
   MOODS, TOOLS, INPUTS, INPUT_NAMES, MOOD_INDEX, TOOL_INDEX,
 } from '../lib/rive/contract.mjs';
+import { buildSpec, bodySvg, beanHalfWidth } from '../tools/rive-export.mjs';
+import { buildSlimeManifest } from '../lib/anim/manifest.mjs';
 
 let pass = 0, fail = 0; const fails = [];
 function check(name, got, want) { if (got === want) pass++; else { fail++; fails.push(`  ✗ ${name}\n      got:  ${JSON.stringify(got)}\n      want: ${JSON.stringify(want)}`); } }
@@ -98,6 +100,26 @@ ok('every input has a name + kind', INPUTS.every((i) => i.name && ['number', 'bo
 ok('triggers carry no default value', INPUTS.filter((i) => i.kind === 'trigger').every((i) => i.default === undefined));
 ok('number/boolean inputs carry a default', INPUTS.filter((i) => i.kind !== 'trigger').every((i) => i.default !== undefined));
 ok('contract covers mood/fullness/tool/birds + the key triggers', ['mood', 'fullness', 'tool', 'birds', 'react', 'win', 'error', 'compact', 'wake'].every((n) => INPUT_NAMES.includes(n)));
+
+console.log('Rive build-export — library → editor build package coverage');
+{
+  const spec = buildSpec();
+  const m = buildSlimeManifest();
+  ok('spec format tag', spec.format === 'animayte-rive-build/1');
+  ok('spec covers all 8 expressions, keyed by mood index 0..7', Object.keys(spec.expressions).length === 8 && [0, 1, 2, 3, 4, 5, 6, 7].every((i) => spec.expressions[i] && spec.expressions[i].eyes));
+  ok('spec covers every manifest clip (timelines)', Object.keys(spec.clips).length === Object.keys(m.clips).length);
+  ok('spec carries all 12 contract inputs', spec.inputs.length === 12);
+  ok('spec carries the 3 palettes (calm/tired/error)', ['calm', 'tired', 'error'].every((p) => spec.palettes[p]));
+  ok('spec carries the props', Object.keys(spec.props).length === Object.keys(m.props).length);
+  ok('every reaction is annotated with a toolIndex', Object.keys(spec.reactions).length > 0 && Object.values(spec.reactions).every((r) => Number.isInteger(r.toolIndex)));
+  ok('artboard/state-machine named per the contract', spec.artboard === 'Pet' && spec.stateMachine === 'animayte');
+  ok('state-machine graph documents layers + data binds', spec.stateMachineGraph.layers.length >= 3 && spec.stateMachineGraph.dataBinds.length >= 4);
+
+  const svg = bodySvg('slime', (t, RX) => RX * Math.sqrt(Math.max(0, 1 - Math.pow(2 * t - 1, 4))), m.palettes.calm);
+  ok('bodySvg emits a valid <svg> (path + gradient, no NaN)', svg.includes('<svg') && svg.includes('<path') && svg.includes('linearGradient') && !/NaN/.test(svg));
+  ok('bodySvg uses the §4.2 ramp colors', svg.includes(m.palettes.calm.base) && svg.includes(m.palettes.calm.rim) && svg.includes(m.palettes.calm.outline));
+  ok('beanHalfWidth is a rounded silhouette (0 at ends, max at middle)', beanHalfWidth(0, 40) === 0 && Math.abs(beanHalfWidth(0.5, 40) - 40) < 1e-9 && beanHalfWidth(1, 40) === 0);
+}
 
 const total = pass + fail;
 console.log(`\n${fail === 0 ? '✅' : '❌'}  ${pass}/${total} Rive-contract checks passed` + (fail ? `, ${fail} FAILED:` : ''));

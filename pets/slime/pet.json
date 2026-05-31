@@ -760,6 +760,87 @@
           }
         ]
       }
+    },
+    "fetching": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 360,
+          "cell": 0
+        },
+        {
+          "dur": 360,
+          "cell": 1
+        },
+        {
+          "dur": 360,
+          "cell": 2
+        },
+        {
+          "dur": 360,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "rot": -0.04,
+            "ty": -1
+          },
+          {
+            "t": 0.5,
+            "rot": 0.04,
+            "ty": -2,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 1,
+            "rot": -0.04,
+            "ty": -1,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
+    },
+    "planning": {
+      "loop": true,
+      "frames": [
+        {
+          "dur": 280,
+          "cell": 0
+        },
+        {
+          "dur": 280,
+          "cell": 1
+        },
+        {
+          "dur": 280,
+          "cell": 2
+        },
+        {
+          "dur": 280,
+          "cell": 1
+        }
+      ],
+      "tracks": {
+        "body": [
+          {
+            "t": 0,
+            "ty": 0
+          },
+          {
+            "t": 0.5,
+            "ty": 2,
+            "ease": "easeInOutSine"
+          },
+          {
+            "t": 1,
+            "ty": 0,
+            "ease": "easeInOutSine"
+          }
+        ]
+      }
     }
   },
   "props": {
@@ -874,6 +955,22 @@
         0.95
       ],
       "pop": 2
+    },
+    "telescope": {
+      "cell": 14,
+      "anchor": [
+        0.76,
+        0.12
+      ],
+      "pop": 2
+    },
+    "checklist": {
+      "cell": 15,
+      "anchor": [
+        0.74,
+        0.5
+      ],
+      "pop": 2
     }
   },
   "reactions": {
@@ -947,6 +1044,22 @@
       "prop": "ellipsis",
       "palette": "calm",
       "priority": 1,
+      "return": "idle"
+    },
+    "Fetching": {
+      "clip": "fetching",
+      "expression": "thinking",
+      "prop": "telescope",
+      "palette": "calm",
+      "priority": 2,
+      "return": "idle"
+    },
+    "Planning": {
+      "clip": "planning",
+      "expression": "thinking",
+      "prop": "checklist",
+      "palette": "calm",
+      "priority": 2,
       "return": "idle"
     },
     "Idea": {

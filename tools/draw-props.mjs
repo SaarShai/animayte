@@ -8,10 +8,12 @@
  */
 export const PROP_CELL = 24;
 
-// the ordered prop set → also the column order in the generated sheet
+// the ordered prop set → also the column order in the generated sheet.
+// APPEND new props (existing column indices must stay stable for shipped manifests).
 export const PROPS = [
   'glasses', 'magnifier', 'pencil', 'book', 'exclaim', 'question',
   'ellipsis', 'sparkle', 'idea', 'heart', 'check', 'zzz', 'steam', 'dust',
+  'telescope', 'checklist',
 ];
 
 // shared prop palette (accent-driven; mood-independent per §4.5)
@@ -88,6 +90,17 @@ const DRAW = {
   },
   steam(C, ox, oy) { disc(C, ox + 8, oy + 12, 3, STEAM); disc(C, ox + 13, oy + 10, 4, STEAM); disc(C, ox + 17, oy + 13, 3, STEAM); disc(C, ox + 12, oy + 14, 3, STEAM); },
   dust(C, ox, oy) { disc(C, ox + 6, oy + 15, 3, STEAM); disc(C, ox + 12, oy + 16, 2, STEAM); disc(C, ox + 17, oy + 15, 3, STEAM); ring(C, ox + 6, oy + 15, 3, [...NEU, 90]); ring(C, ox + 17, oy + 15, 3, [...NEU, 90]); },
+  telescope(C, ox, oy) { // a little spyglass aimed up-right (WebFetch — peering far)
+    for (let i = 0; i < 9; i++) { const x = ox + 6 + i, y = oy + 16 - i; const w = i < 4 ? 1 : 2; for (let d = 0; d < w; d++) { C.px(x, y - d, NEU); C.px(x, y - d, i > 6 ? GLASS : NEU); } }
+    rect(C, ox + 4, oy + 15, 3, 2, INK);            // eyepiece
+    disc(C, ox + 16, oy + 6, 2, GLASS); ring(C, ox + 16, oy + 6, 2, INK);  // big lens
+    dot(C, ox + 19, oy + 3, WHITE); dot(C, ox + 20, oy + 9, WARM);          // glint + far star
+  },
+  checklist(C, ox, oy) { // a tiny clipboard with ticked rows (TodoWrite — planning)
+    rect(C, ox + 5, oy + 4, 14, 16, INK); rect(C, ox + 6, oy + 5, 12, 14, WHITE);
+    rect(C, ox + 9, oy + 2, 6, 3, NEU);             // clip
+    for (let r = 0; r < 3; r++) { const y = oy + 8 + r * 4; C.px(ox + 8, y, GREEN); C.px(ox + 9, y + 1, GREEN); C.px(ox + 10, y, GREEN); C.px(ox + 11, y - 1, GREEN); for (let x = 0; x < 5; x++) C.px(ox + 13 + x, y, NEU); }
+  },
 };
 
 export function drawProp(C, ox, oy, name) {

@@ -37,8 +37,10 @@
 - **`docs/rive-build-guide.md`** — step-by-step editor build FROM that export (artboard → import the SVG →
   faces → palettes → the `animayte` state machine + 12 inputs → wire the graph → export `pet.riv`). ~half-day build.
 - **`desktop/rive/`** — Swift SPM package (`AnimaytePetRive`) that hosts the `.riv` in a floating macOS window
-  (reuses the transparent/click-through window setup) and drives the contract inputs from `/health`. *Code complete;
-  untested-compile until a `.riv` exists + the Rive SPM dep is fetched (`cd desktop/rive && swift build -c release`).*
+  (reuses the transparent/click-through window setup) and drives the contract inputs from `/health`. The Rive SPM
+  dep **resolves cleanly** (rive-ios **6.20.5**, `Package.resolved` committed) and compilation starts without API
+  errors; the full link couldn't finish *in this sandbox* (Rive's ~100MB+ prebuilt `RiveRuntime.xcframework`
+  download timed out — an environment limit, not the code). **Build on a Mac:** `cd desktop/rive && swift build -c release`.
 - **More tests**: `test/rive.test.mjs` now 66 checks (mapping + build-spec coverage + SVG); integration +5 (Rive
   asset MIME, driver served, no-`.riv`→404 fallback). `npm test` green: **827 checks**.
 

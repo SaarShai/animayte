@@ -139,6 +139,11 @@ renderer-conformance contract that keeps the 3 renderers in sync:
 > `pet.riv` exists, else falls back to the pixel pet. See it now at `/rive-lab.html`. The remaining step is
 > authoring the character in the Rive editor to the contract; everything around it (runtime, driver,
 > mapping, tests, desktop hosting plan) is done.
+>
+> **GPU renderer (PixiJS, code-first).** A second engine, [`lib/pixi/runtime.mjs`](lib/pixi/runtime.mjs)
+> (PixiJS v8, MIT), runs our *entire existing library* on the GPU — same state machine, manifest, palette
+> swap, props, birds — no editor needed. It's the default when a browser has WebGL; the Canvas2D engine is
+> the automatic fallback. Force an engine with **`?engine=pixi|canvas|rive`**.
 
 ```bash
 npm run preview       # contact-sheets + clip filmstrips → tools/preview-out/ (QA the art)

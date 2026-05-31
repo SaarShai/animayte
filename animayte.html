@@ -312,23 +312,28 @@
       try{
         let pet='slime', personaName='adaptive', sound=false, volume=0.6;
         try{ const h=await fetch('/health').then(r=>r.json()); const st=(h&&h.state)||{}; pet=st.pet||'slime'; personaName=st.personality||'adaptive'; sound=st.sound===true; if(typeof st.volume==='number') volume=st.volume; }catch(_){}
-        // prefer Rive when this pet ships a .riv (authored in the Rive editor → docs/rive-contract.md)
+        // engine preference: Rive (.riv) → PixiJS (GPU) → Canvas2D. Override with ?engine=rive|pixi|canvas
+        const forceEngine=new URLSearchParams(location.search).get('engine');
+        const manifestUrl='/pets/'+pet+'/pet.json';
+        let personality=null;
+        try{ personality=await fetch('/personalities/'+personaName+'.json').then(r=>r.ok?r.json():null); }catch(_){}
+        const setPill=(t)=>{ const p=$('livePill'); if(p) p.title=t; };
+        const useCanvas=async()=>{ const mod=await import('/lib/anim/runtime.mjs'); ctrl=await mod.createRuntime(cv,{ manifestUrl, personality, sound, volume, reduceMotion }); setPill('engine: Canvas2D'); };
+        const usePixi=async()=>{ const PIXI=await import('/assets/vendor/pixi/pixi.mjs'); const mod=await import('/lib/pixi/runtime.mjs'); ctrl=await mod.createPixiRuntime(cv,{ PIXI, manifestUrl, personality, sound, volume, reduceMotion }); setPill('engine: PixiJS (GPU)'); };
         let riveSrc=null;
-        try{ const hr=await fetch('/pets/'+pet+'/pet.riv',{method:'HEAD'}); if(hr.ok) riveSrc='/pets/'+pet+'/pet.riv'; }catch(_){}
+        if(forceEngine!=='pixi' && forceEngine!=='canvas'){ try{ const hr=await fetch('/pets/'+pet+'/pet.riv',{method:'HEAD'}); if(hr.ok) riveSrc='/pets/'+pet+'/pet.riv'; }catch(_){} }
         if(riveSrc){
           await loadScript('/assets/vendor/rive/rive.js');
           window.rive.RuntimeLoader.setWasmUrl('/assets/vendor/rive/rive.wasm');
           const mod=await import('/lib/rive/driver.mjs');
           const C=await import('/lib/rive/contract.mjs');
-          // pass the contract's artboard + state machine so Rive INSTANCES them on load
-          // (inputs are then reliably available; the lab auto-picks for arbitrary .riv files)
           ctrl=await mod.createRiveController(window.rive,{ canvas:cv, src:riveSrc, reduceMotion, artboard:C.ARTBOARD, stateMachine:C.STATE_MACHINE });
-          const pill=$('livePill'); if(pill) pill.title='engine: Rive';
+          setPill('engine: Rive');
+        } else if(forceEngine==='canvas'){
+          await useCanvas();
         } else {
-          const mod=await import('/lib/anim/runtime.mjs');
-          let personality=null;
-          try{ personality=await fetch('/personalities/'+personaName+'.json').then(r=>r.ok?r.json():null); }catch(_){}
-          ctrl=await mod.createRuntime(cv,{ manifestUrl:'/pets/'+pet+'/pet.json', personality, sound, volume, reduceMotion });
+          // PixiJS (GPU) is the default for the pixel pet; Canvas2D is the safe fallback if WebGL is unavailable
+          try{ await usePixi(); }catch(ePixi){ console.warn('animayte: PixiJS unavailable ('+(ePixi&&ePixi.message||ePixi)+'), using Canvas2D', ePixi); await useCanvas(); }
         }
       }catch(e){ console.warn('animayte: renderer init failed, using legacy renderer', e); ctrl=makeLegacy(); }
     } else {

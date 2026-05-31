@@ -249,12 +249,13 @@
       es.onerror=()=>{
         live=false;
         setPill(everLive?'… reconnecting':'○ waiting…', everLive?'#e3a008':'');
-        if(es && es.readyState===2){ try{ es.close(); }catch(_){} schedule(); }  // CLOSED → re-open ourselves
+        // take over reconnection on ANY error — native EventSource retry can stall in CONNECTING
+        try{ if(es) es.close(); }catch(_){} schedule();
       };
     }
     open();
-    // a backgrounded tab can have its stream die silently — re-open on return if it's closed
-    document.addEventListener('visibilitychange',()=>{ if(!document.hidden && es && es.readyState===2) open(); });
+    // a backgrounded tab can have its stream die silently — re-open on return unless already live
+    document.addEventListener('visibilitychange',()=>{ if(!document.hidden && (!es || es.readyState!==1)) open(); });
   }
 
   // ---- scripted demo (drives whichever controller is active) ----

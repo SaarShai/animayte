@@ -99,11 +99,14 @@
     es.onerror = () => {
       pill.textContent = everLive ? '… reconnecting' : '○ waiting…';
       pill.style.color = everLive ? '#e3a008' : '';
-      if (es && es.readyState === 2) { try { es.close(); } catch (_) {} schedule(); }
+      // take over reconnection on ANY error — don't rely on the native EventSource retry, which in
+      // WKWebView can sit in CONNECTING forever after a daemon restart. schedule() de-dupes + backs off.
+      try { if (es) es.close(); } catch (_) {}
+      schedule();
     };
   }
   open();
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && es && es.readyState === 2) open(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && (!es || es.readyState !== 1)) open(); });
 
   window.pet = pet; // dev affordance
 </script>

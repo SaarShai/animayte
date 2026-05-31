@@ -344,6 +344,19 @@ const moodDecay = setInterval(() => {
 }, 15000);
 if (moodDecay.unref) moodDecay.unref();   // don't keep the process alive just for decay
 
+// fail gracefully if the port is taken (a daemon is probably already running) — no ugly stack trace
+server.on('error', (err) => {
+  if (err && err.code === 'EADDRINUSE') {
+    console.error(`\n  🐣 animayte: port ${PORT} is already in use — a daemon is probably already running.`);
+    console.error(`     • open it:        http://127.0.0.1:${PORT}`);
+    console.error(`     • restart it:     bin/animayte restart`);
+    console.error(`     • or another port: ANIMAYTE_PORT=4322 npm start\n`);
+    process.exit(1);
+  }
+  console.error('  🐣 animayte daemon error:', (err && err.message) || err);
+  process.exit(1);
+});
+
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`\n  🐣 animayte daemon →  http://127.0.0.1:${PORT}`);
   console.log(`     context % is now REAL (from the transcript usage object).\n`);

@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>animayte · detection lab (Layer A)</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; padding: 28px 24px 56px;
+    background: radial-gradient(1200px 700px at 50% -10%, #1b2440, #0a0e1a 70%);
+    font: 13px/1.45 ui-monospace, "SF Mono", Menlo, monospace; color: #aeb6c8; }
+  h1 { font-size: 14px; letter-spacing: .14em; text-transform: uppercase; color: #6f7a93; font-weight: 600; text-align: center; margin: 0 0 4px; }
+  .sub { text-align: center; color: #59617a; font-size: 12px; margin-bottom: 22px; }
+  .wrap { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: 1fr 340px; gap: 22px; align-items: start; }
+  @media (max-width: 880px) { .wrap { grid-template-columns: 1fr; } }
+  label.lbl { font-size: 11px; color: #59617a; letter-spacing: .1em; text-transform: uppercase; display: block; margin-bottom: 6px; }
+  textarea { width: 100%; height: 150px; resize: vertical; background: rgba(255,255,255,.03); color: #e8ecf4;
+    border: 1px solid rgba(255,255,255,.1); border-radius: 10px; padding: 12px; font: inherit; }
+  .presets { display: flex; flex-wrap: wrap; gap: 7px; margin: 10px 0 16px; }
+  .presets button { font: inherit; color: #cdd5e6; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+    border-radius: 8px; padding: 6px 9px; cursor: pointer; font-size: 11.5px; }
+  .presets button:hover { background: rgba(230,168,23,.14); border-color: rgba(230,168,23,.4); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; color: #59617a; font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,.08); }
+  td { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: top; }
+  td.utter { color: #cbd3e4; max-width: 360px; }
+  td.feel { color: #e6a817; white-space: nowrap; }
+  td.reason { color: #6b7488; font-size: 11px; }
+  .changed { color: #19b36b; }
+  .none { color: #4d556b; }
+  .card { background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.06); border-radius: 14px; padding: 16px; text-align: center; position: sticky; top: 20px; }
+  canvas { image-rendering: pixelated; display: block; margin: 0 auto 10px; }
+  .big { font-size: 20px; color: #e6a817; }
+  .why { color: #7c869c; font-size: 11.5px; margin-top: 6px; min-height: 30px; }
+  .legend { margin-top: 16px; font-size: 10.5px; color: #4d556b; line-height: 1.7; text-align: left; }
+  .legend b { color: #8893aa; font-weight: 600; }
+</style>
+</head>
+<body>
+  <h1>Dijon · detection lab — Layer A</h1>
+  <div class="sub">paste agent text — one utterance per line (oldest → newest). See what Dijon feels, and why.</div>
+
+  <div class="wrap">
+    <div>
+      <label class="lbl" for="ta">agent text (each line = one message, in order)</label>
+      <textarea id="ta" spellcheck="false"></textarea>
+      <div class="presets" id="presets"></div>
+      <label class="lbl">per-line detection + what the pet actually shows (salience over the last 4 lines)</label>
+      <table>
+        <thead><tr><th>utterance</th><th>detected</th><th>why</th><th>pet shows</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <canvas id="c"></canvas>
+      <div class="big" id="pick">neutral 🙂</div>
+      <div class="why" id="why"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+  </div>
+
+<script type="module">
+  import { render, sizeCanvas } from '/grid/engine.mjs';
+  import { GRID, PALETTE, compose } from '/grid/creature.mjs';
+  import { EXPRESSIONS, detectExpression, byId, appleFor } from '/lib/expressions.mjs';
+
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const ctx = sizeCanvas(document.getElementById('c'), GRID.w, GRID.h, 7, dpr);
+  const ta = document.getElementById('ta');
+  const rows = document.getElementById('rows');
+
+  // salience rule mirrored from the daemon (animayte.mjs applySentiment): most-salient
+  // feeling across the recent window (highest priority; recency breaks ties).
+  function pickSalient(windowNewestFirst) {
+    let best = null;
+    windowNewestFirst.forEach((t, i) => {
+      const r = detectExpression(t); if (!r) return;
+      const recency = windowNewestFirst.length - i;
+      if (!best || r.priority > best.priority || (r.priority === best.priority && recency > best._recency)) best = { ...r, _recency: recency };
+    });
+    return best;
+  }
+
+  function draw(id) {
+    const face = (byId(id) && byId(id).face) || {};
+    const cells = compose(face, {});
+    render(ctx, cells, PALETTE, { gridW: GRID.w, gridH: GRID.h, cell: 7 });
+  }
+
+  function update() {
+    const lines = ta.value.split('\n').map((l) => l.trim()).filter(Boolean);
+    rows.innerHTML = '';
+    let lastPick = 'neutral', lastWhy = '';
+    lines.forEach((line, i) => {
+      const det = detectExpression(line);
+      const windowNF = lines.slice(0, i + 1).slice(-4).reverse();
+      const sal = pickSalient(windowNF);
+      const pickId = sal ? sal.id : 'neutral';
+      const changed = sal && sal.id !== (i > 0 ? lastPick : null);
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        `<td class="utter">${line.replace(/</g, '&lt;').slice(0, 80)}</td>` +
+        `<td class="feel">${det ? det.id + ' ' + appleFor(det.id) : '<span class=none>—</span>'}</td>` +
+        `<td class="reason">${det ? det.reason : '<span class=none>no emotion</span>'}</td>` +
+        `<td class="feel ${changed ? 'changed' : ''}">${pickId} ${appleFor(pickId)}</td>`;
+      rows.appendChild(tr);
+      if (sal) { lastPick = sal.id; lastWhy = `${sal.id} — ${sal.reason}`; }
+    });
+    draw(lastPick);
+    document.getElementById('pick').textContent = `${lastPick} ${appleFor(lastPick)}`;
+    document.getElementById('why').textContent = lines.length ? `pet shows: ${lastWhy || 'neutral (no feeling detected)'}` : 'type something →';
+  }
+  ta.addEventListener('input', update);
+
+  // preset probes — real-ish agent lines + the tricky ones the suite flagged
+  const PRESETS = [
+    'Fixed it — all tests pass! ✅',
+    '🎉 huge win, that worked beautifully',
+    'Let me investigate the root cause',
+    'Investigating the failing case.',
+    'Oops, my mistake — I had a typo',
+    'The build failed with an error 😟',
+    '⚠️ heads up, this is risky',
+    'compacting the context now',
+    'mostly works but threw an error',
+    "Let me run the build.\nThe build failed with an error. 😟\nAh, my mistake — a typo.\nFixed it, tests pass now. ✅",
+  ];
+  const pres = document.getElementById('presets');
+  for (const p of PRESETS) {
+    const b = document.createElement('button');
+    b.textContent = (p.includes('\n') ? '▸ session: ' : '') + p.split('\n')[0].slice(0, 30) + (p.length > 30 ? '…' : '');
+    b.onclick = () => { ta.value = p; update(); };
+    pres.appendChild(b);
+  }
+
+  // legend: the 8 feelings + priority (higher wins a tie within the window)
+  document.getElementById('legend').innerHTML = '<b>feelings (priority)</b><br>' +
+    [...EXPRESSIONS].sort((a, b) => b.priority - a.priority).map((e) => `${appleFor(e.id)} ${e.id} (${e.priority})`).join(' · ');
+
+  ta.value = PRESETS[0]; update();
+</script>
+</body>
+</html>

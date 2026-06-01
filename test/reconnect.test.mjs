@@ -96,6 +96,22 @@ try {
   const exp = await collectSSE(port, 350);
   ok('a new connection resyncs the last FeatureSpec (cmd:express)', exp.events.some((e) => e.cmd === 'express' && e.spec && typeof e.spec.expression === 'string'));
 
+  // 2c) drive a permission Notification, then a NEW connection must RESYNC the "may I?" pose + bubble —
+  //     a reconnect during a permission prompt must not drop the pet's most important alert.
+  const postEvent = (ev) => new Promise((resolve) => {
+    const data = Buffer.from(JSON.stringify(ev));
+    const req = http.request({ host: '127.0.0.1', port, path: '/event', method: 'POST', headers: { 'content-type': 'application/json', 'content-length': data.length } }, (r) => { r.resume(); r.on('end', resolve); });
+    req.on('error', resolve); req.write(data); req.end();
+  });
+  await postEvent({ hook_event_name: 'Notification', message: 'Claude needs your permission to run a command' });
+  const ask = await collectSSE(port, 350);
+  ok('a new connection resyncs the "Asking" pose (permission prompt survives reconnect)', ask.events.some((e) => e.cmd === 'react' && e.name === 'Asking'));
+  ok('a new connection resyncs the recent say bubble', ask.events.some((e) => e.cmd === 'say' && /may I/.test(e.text || '')));
+  // …and once the user acts, the pose clears — a later connection must NOT show a stale Asking
+  await postEvent({ hook_event_name: 'UserPromptSubmit', prompt: 'ok go ahead' });
+  const cleared = await collectSSE(port, 350);
+  ok('the awaiting pose clears once activity resumes (no stale Asking on reconnect)', !cleared.events.some((e) => e.cmd === 'react' && e.name === 'Asking'));
+
   // 3) kill + restart on the SAME port → a reconnection succeeds with a FRESH snapshot
   await stopDaemon(child);
   const down = await collectSSE(port, 200);

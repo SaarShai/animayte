@@ -111,8 +111,19 @@ console.log('· statusline-only mode (plugin already wires the hooks → no doub
 console.log('· a custom port is baked into the hook commands');
 {
   const r = applyInstall({}, { port: 4399, repoRoot: '/repo' }).settings;
-  ok('hook command targets the chosen port', r.hooks.SessionStart[0].hooks[0].command.includes(':4399/event'));
-  eq('hookCommand() matches what install writes', r.hooks.SessionStart[0].hooks[0].command, hookCommand(4399));
+  ok('hook command targets the chosen port', /animayte-post\.mjs"?\s+event\s+4399\b/.test(r.hooks.SessionStart[0].hooks[0].command));
+  eq('hookCommand() matches what install writes', r.hooks.SessionStart[0].hooks[0].command, hookCommand(4399, '/repo'));
+}
+
+// the hook command must be CROSS-PLATFORM — `node` (always present), NOT `curl` (a PowerShell alias
+// on Windows that rejects --data-binary → silent hook failure). Guards against a revert.
+{
+  const cmd = hookCommand(4321, '/repo');
+  ok('hook command invokes node (cross-platform), not curl', cmd.startsWith('node ') && !/\bcurl\b/.test(cmd));
+  ok('hook command has no --data-binary / single-quoted -H (the Windows-breaking bits)', !cmd.includes('--data-binary') && !cmd.includes("'content-type"));
+  const hj = JSON.parse(readFileSync(join(process.cwd(), 'hooks', 'hooks.json'), 'utf8'));
+  const cmds = Object.values(hj.hooks).flat().flatMap((g) => g.hooks.map((h) => h.command));
+  ok('plugin hooks.json: all 9 commands use the node forwarder (no curl)', cmds.length === 9 && cmds.every((c) => c.includes('animayte-post.mjs') && !/\bcurl\b/.test(c)));
 }
 
 const total = pass + fail;

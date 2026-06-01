@@ -1,0 +1,37 @@
+{
+  "_comment": "DOCUMENTED, not captured. Statusline JSON is POSTed live to /status and never written to the transcript, so it cannot be extracted from real .jsonl files. Shape sourced from docs/session-signals.md + animayte.mjs handleStatus(). Real values are the ones session-signals.md records as \"seen\".",
+  "model": {
+    "id": "claude-opus-4-8",
+    "display_name": "Opus"
+  },
+  "context_window": {
+    "used_percentage": 28,
+    "context_window_size": 1000000,
+    "total_input_tokens": 276746,
+    "current_usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 1387,
+      "cache_read_input_tokens": 275357
+    }
+  },
+  "cost": {
+    "total_cost_usd": 1.83,
+    "total_lines_added": 420,
+    "total_lines_removed": 61,
+    "total_duration_ms": 0
+  },
+  "rate_limits": {
+    "five_hour": {
+      "used_percentage": 34
+    },
+    "seven_day": {
+      "used_percentage": 12
+    }
+  },
+  "effort": {
+    "level": "high"
+  },
+  "thinking": {
+    "enabled": true
+  }
+}

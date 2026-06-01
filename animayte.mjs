@@ -57,11 +57,61 @@ let ownerSession = process.env.ANIMAYTE_SESSION || null;
 // Once a session owns the pet, require a MATCHING session_id — a payload with no session_id must
 // NOT slip through (that would silently re-open the cross-session bleed). No owner ⇒ accept all.
 const ownsEvent = (sid) => !ownerSession || sid === ownerSession;
+// `ownerConfirmed` = the owner has actually sent us a real event (so the binding is REAL, not a
+// birth-time guess). `ownerLocked` = a session explicitly claimed via POST /claim (the launcher /
+// the user) — authoritative, never auto-overridden. The env-birth owner is a SOFT guess until
+// confirmed: if it never speaks and another session does, the guess was stale (e.g. the daemon was
+// restarted pinned to an old session id) — see SELF-HEAL below.
+let ownerConfirmed = false, ownerLocked = false;
+let lastOwnerEventAt = 0;   // when the CURRENT owner last actually spoke (0 = never confirmed)
+// a confirmed/locked owner is adoptable-away ONLY after this much silence — long enough that no
+// ACTIVE session (which emits a hook/statusline far more often) ever looks dead, short enough that a
+// session whose id CHANGED (a /clear or --resume mints a NEW uuid — CC exposes no link to the old
+// one) is followed within a minute.
+const ADOPT_SILENCE_MS = Number(process.env.ANIMAYTE_ADOPT_SILENCE_MS) || 60_000;
+// Observability for the silent-death failure mode. Count dropped foreign events + remember the id so
+// /health and `doctor` can SEE it ("receiving events for another session — run /animayte to claim").
+let filteredEvents = 0, lastForeignSession = null, lastForeignAt = 0;
+const noteForeign = (sid) => { filteredEvents++; lastForeignSession = sid || null; lastForeignAt = Date.now(); };
+// FOLLOW-THE-LIVE-SESSION / SELF-HEAL: adopt a foreign session only when the current owner looks DEAD
+// — either it NEVER confirmed itself (a stale env-birth guess) OR it has been SILENT for the grace
+// window. An ACTIVE owner refreshes lastOwnerEventAt on every event, so it's never silent → two
+// concurrent live sessions can NOT ping-pong (the non-owner stays filtered). A genuinely-changed
+// session id goes quiet by definition, so its successor is followed after the grace + a 2-event
+// streak (a single stray / a startup race can't flip us). An explicit /animayte (/claim) always
+// transfers instantly and deliberately.
+let adoptCandidate = null, adoptStreak = 0;
+function maybeAdopt(sid) {
+  if (!ownerSession || !sid || sid === ownerSession) return false;
+  const neverConfirmed = !ownerConfirmed && !ownerLocked;                 // stale env-birth guess → adopt eagerly
+  const silentFor = lastOwnerEventAt ? Date.now() - lastOwnerEventAt : Infinity;
+  if (!(neverConfirmed || silentFor >= ADOPT_SILENCE_MS)) return false;   // an ACTIVE owner is never adoptable → no bleed
+  if (sid === adoptCandidate) adoptStreak++; else { adoptCandidate = sid; adoptStreak = 1; }
+  if (adoptStreak < 2) return false;
+  ownerSession = sid; ownerConfirmed = true; lastOwnerEventAt = Date.now(); adoptCandidate = null; adoptStreak = 0;
+  filteredEvents = 0; lastForeignSession = null;
+  freshStart(); say('👋 reconnected — following this session now');
+  return true;
+}
 let lastSpec = null;   // the most recent FeatureSpec — re-sent on (re)connect so spec-aware renderers don't lose the rich face
+let lastSay = null;    // {text, ms, at} — re-sent on (re)connect so a reconnect mid-bubble keeps the message
+let awaitingUser = null;  // 'Asking' | 'Waiting' | null — the "blocked on the user" pose; re-sent on (re)connect so a
+                          // reconnect during a permission prompt doesn't drop the pet's most important alert
 
+// cap on per-client buffered bytes. A pet that's reading normally keeps writableLength ~0; a
+// stalled/half-open client (socket buffer full but not yet errored) returns false from write()
+// WITHOUT throwing, so Node would queue every broadcast in memory forever → unbounded RSS on a
+// constrained machine. Past this cap the client is hopelessly behind (thousands of commands), so we
+// destroy it; its supervisor reconnects and gets a fresh authoritative snapshot anyway.
+const SLOW_CLIENT_MAX_BUFFER = Number(process.env.ANIMAYTE_SLOW_BUFFER) || 1_000_000;   // 1 MB (test-tunable)
 function broadcast(cmd) {
   const line = `data: ${JSON.stringify(cmd)}\n\n`;
-  for (const res of clients) { try { res.write(line); } catch { clients.delete(res); } }  // drop dead sockets
+  for (const res of clients) {
+    try {
+      res.write(line);
+      if (res.writableLength > SLOW_CLIENT_MAX_BUFFER) { clients.delete(res); res.destroy(); }  // drop a slow consumer (backpressure)
+    } catch { clients.delete(res); }   // drop dead sockets
+  }
 }
 // Full, authoritative state sync sent to every (re)connecting client. After a daemon
 // restart the server's state is fresh (0 birds, idle), so we clearBirds + re-set phase,
@@ -76,6 +126,9 @@ function snapshotTo(res) {
   send({ cmd: 'mood', value: state.mood });
   send({ cmd: 'moodLevel', value: state.moodLevel, label: state.moodLabel });
   if (lastSpec) send({ cmd: 'express', spec: lastSpec });   // resync the rich FeatureSpec face
+  if (awaitingUser) send({ cmd: 'react', name: awaitingUser });   // restore the "may I? / your turn" pose on reconnect
+  if (lastSay && Date.now() - lastSay.at < (lastSay.ms || 3500))   // restore a still-visible bubble (with its remaining time)
+    send({ cmd: 'say', text: lastSay.text, ms: (lastSay.ms || 3500) - (Date.now() - lastSay.at) });
 }
 
 const setMood     = (value, ms) => { state.mood = value; state.updated = Date.now(); broadcast({ cmd: 'mood', value, ms }); applyMoodDrift(value); };
@@ -94,6 +147,21 @@ const setFullness = (v) => {
   if (changed) broadcast({ cmd: 'fullness', value: nv });
 };
 
+// Fullness from an EXTERNAL feed (transcript usage or statusline %). After a /compact the context
+// drops sharply, then refills GRADUALLY as work resumes. So within a short guard window after a
+// compaction we drop a big UPWARD JUMP — a single update can't physically add a quarter of the
+// window in a few seconds, so it's a STALE pre-compact reading (a usage object that briefly remains
+// the newest transcript line, or a statusline % that lags one render) snapping the head back up.
+// Gradual refill and any decrease always apply, so a real post-/compact climb still tracks.
+let compactGuardUntil = 0;
+const applyContextFullness = (v) => {
+  const nv = Math.max(0, Math.min(1, v));
+  if (Date.now() < compactGuardUntil && nv > state.fullness + 0.25) return false;
+  setFullness(nv);
+  state.ctxPct = Math.round(nv * 100);   // keep the % readout in lockstep with the (guarded) head
+  return true;
+};
+
 // /compact relief: bump reliefSeq (pets play steam-from-ears), then deflate the head over ~1.8s.
 // While relieving, transcript-fullness updates are skipped so the deflation reads cleanly.
 let reliefActive = false;
@@ -103,20 +171,33 @@ function triggerRelief() {
   broadcast({ cmd: 'relief' });
   say('😮‍💨 phew — compacted!', 3500);
   reliefActive = true;
+  compactGuardUntil = Date.now() + 12000;   // guard past the ~1.8s deflate while the post-compact context settles
   if (reliefTimer) clearInterval(reliefTimer);
   const from = state.fullness, to = 0.30, t0 = Date.now();
   reliefTimer = setInterval(() => {
     const k = Math.min(1, (Date.now() - t0) / 1800);
     setFullness(from + (to - from) * k);
+    state.ctxPct = Math.round(state.fullness * 100);   // keep the % readout in step with the deflating head
     if (k >= 1) { clearInterval(reliefTimer); reliefTimer = null; reliefActive = false; setMood('happy', 1600); }
   }, 80);
+  if (reliefTimer.unref) reliefTimer.unref();   // don't pin the event loop for the ~1.8s deflate
 }
 const addBird     = (label) => { if (state.birds.length >= 5) return; state.birds.push({ id: birdSeq++, label }); broadcast({ cmd: 'addBird', label }); };
 const removeBird  = () => { const b = state.birds.shift(); if (b) broadcast({ cmd: 'removeBird' }); };
 const hatch       = () => { if (state.phase !== 'alive') { state.phase = 'alive'; broadcast({ cmd: 'wake' }); } };
-const say         = (text, ms) => broadcast({ cmd: 'say', text, ms });
+const say         = (text, ms) => { lastSay = { text, ms, at: Date.now() }; broadcast({ cmd: 'say', text, ms }); };
 const sleepPet    = () => { if (waitTimer) { clearTimeout(waitTimer); waitTimer = null; } state.phase = 'sleeping'; broadcast({ cmd: 'sleep' }); };
-const freshStart  = () => { state.phase = 'alive'; state.birds = []; state.fullness = 0; state.mood = 'idle'; moodMeter.reset(); state.moodLevel = 0; state.moodLabel = 'level'; lastSpec = null; lastSentimentText = ''; broadcast({ cmd: 'reset' }); };
+const freshStart  = () => {
+  if (reliefTimer) { clearInterval(reliefTimer); reliefTimer = null; }   // cancel an in-flight /compact deflate so it can't drive the NEW session's head
+  reliefActive = false; compactGuardUntil = 0;
+  state.phase = 'alive'; state.birds = []; state.fullness = 0; state.mood = 'idle';
+  moodMeter.reset(); state.moodLevel = 0; state.moodLabel = 'level';
+  // reset the rich per-session readout too — otherwise a /claim transfer bleeds the PREVIOUS
+  // session's ctx%/cost/lines/model into the new owner until its first statusline lands
+  state.ctxPct = 0; state.ctxTokens = 0; state.costUsd = 0; state.linesAdded = 0; state.linesRemoved = 0;
+  state.rateLimitPct = 0; state.activeTool = null; lastValence = 0; lastStatusCtxAt = 0;
+  lastSpec = null; lastSay = null; awaitingUser = null; lastSentimentText = ''; broadcast({ cmd: 'reset' });
+};
 
 // context window size by model (2026): haiku=200k, opus/sonnet 4.x = 1M. Statusline overrides this.
 function windowFor(model) {
@@ -145,6 +226,17 @@ async function readTranscriptTail(path) {
     for (let i = lines.length - 1; i >= 0; i--) {
       const l = lines[i].trim(); if (!l) continue;
       let o; try { o = JSON.parse(l); } catch { continue; }
+      // Skip SUB-AGENT turns. Claude Code interleaves sidechain (sub-agent) turns into the SAME
+      // transcript, tagged `"isSidechain": true` at the top level. Without this, a sub-agent's
+      // newest usage/text would drive the MAIN pet — a research helper's "this is broken" makes
+      // the top-level pet sad, and its small usage deflates the body. Only main-thread turns count.
+      if (o.isSidechain === true) continue;
+      // Respect the compaction boundary. Everything BEFORE it is pre-compact history whose last
+      // `usage` object reports the OLD near-full context (e.g. 830k/83%). Scanning newest→oldest,
+      // the moment we hit the boundary we must stop — reading across it would make a transcript read
+      // right after /compact re-inflate fullness to ~full, undoing the relief deflate. If no
+      // post-compact usage exists yet, `usage` stays null and we leave fullness untouched.
+      if (o.type === 'system' && o.subtype === 'compact_boundary') break;
       const msg = o.message || o;
       const isAssistant = msg && (msg.role === 'assistant' || o.type === 'assistant');
       if (!usage && msg && msg.usage) { usage = msg.usage; model = msg.model || o.model || state.model; }
@@ -247,13 +339,14 @@ async function handleEvent(ev) {
   state.lastEventAt = Date.now();   // a real hook arrived → a live session is driving us (doctor reads this)
   if (isDuplicateTool(name, ev)) return;  // drop a double-delivered tool event
   if (waitTimer) { clearTimeout(waitTimer); waitTimer = null; }  // any event = activity resumed; cancel the pending wait-glance
+  awaitingUser = null;   // activity resumed → no longer blocked on the user (the Notification/Stop cases below re-set it)
   // Only the text/context events read the transcript — keeps PreToolUse and other high-frequency
   // events I/O-free (context only changes on assistant messages, which these two reflect).
   let tail = null;
   if (name === 'PostToolUse' || name === 'Stop') {
     tail = await readTranscriptTail(ev.transcript_path);
     // the transcript estimate yields to a fresh authoritative statusline % (avoids the two fighting)
-    if (tail && tail.ctx && !reliefActive && Date.now() - lastStatusCtxAt > 8000) { state.ctxTokens = tail.ctx.tokens; state.ctxWindow = tail.ctx.win; state.ctxPct = Math.round(tail.ctx.pct * 100); setFullness(tail.ctx.pct); }
+    if (tail && tail.ctx && !reliefActive && Date.now() - lastStatusCtxAt > 8000) { state.ctxTokens = tail.ctx.tokens; state.ctxWindow = tail.ctx.win; applyContextFullness(tail.ctx.pct); }
   }
 
   switch (name) {
@@ -291,14 +384,14 @@ async function handleEvent(ev) {
       if (isErrorResponse(ev)) { applySpec(appraise({ isError: true }, { valence: lastValence }), 2200); say('😟 hit a snag, recovering…'); }
       else if (!applySentiment(tail && tail.recentTexts)) setMood('thinking');
       break;
-    case 'SubagentStop': removeBird(); if (state.birds.length === 0) setMood('happy', 1600); break;
+    case 'SubagentStop': { const had = state.birds.length; removeBird(); if (had > 0 && state.birds.length === 0) setMood('happy', 1600); break; }   // only celebrate if a bird actually left (a stray/duplicate SubagentStop must not force 'happy')
     case 'Notification': {
       const msg = String(ev.message || '');
       if (/permission|needs your (permission|approval)|approve|wants to|allow\b/i.test(msg)) {
-        broadcast({ cmd: 'react', name: 'Asking' });           // look up expectantly with a "?" — may I proceed?
+        awaitingUser = 'Asking'; broadcast({ cmd: 'react', name: 'Asking' });   // "may I?" — sticky so a reconnect keeps it
         say('🙋 may I? ' + msg.slice(0, 40));
       } else if (/waiting for your input|is waiting|idle|are you (there|still)/i.test(msg)) {
-        broadcast({ cmd: 'react', name: 'Waiting' });
+        awaitingUser = 'Waiting'; broadcast({ cmd: 'react', name: 'Waiting' });
         say('👀 your turn…');
       } else if (msg) { say('🔔 ' + msg.slice(0, 48)); }
       break;
@@ -307,7 +400,7 @@ async function handleEvent(ev) {
       // when Claude finishes a turn, reflect the emotion of what it just said
       if (!applySentiment(tail && tail.recentTexts, 5000)) setMood(state.fullness > 0.8 ? 'sleepy' : 'neutral');
       // then, after a beat with no follow-up event, look up and around — expecting the user
-      waitTimer = setTimeout(() => { waitTimer = null; if (state.phase === 'alive') broadcast({ cmd: 'react', name: 'Waiting' }); }, 3500);
+      waitTimer = setTimeout(() => { waitTimer = null; if (state.phase === 'alive') { awaitingUser = 'Waiting'; broadcast({ cmd: 'react', name: 'Waiting' }); } }, 3500);
       if (waitTimer.unref) waitTimer.unref();
       break;
     case 'PreCompact':   triggerRelief(); break;   // dramatic deflate + steam from the "ears"
@@ -321,7 +414,7 @@ function handleStatus(j) {
   state.lastEventAt = Date.now();   // the statusline feed is also a live-session signal (doctor reads this)
   const cw = j.context_window || {};
   // statusline used_percentage is authoritative; don't yank fullness back up mid-/compact deflate
-  if (typeof cw.used_percentage === 'number') { state.ctxPct = Math.round(cw.used_percentage); if (!reliefActive) setFullness(Math.max(0, Math.min(1, cw.used_percentage / 100))); lastStatusCtxAt = Date.now(); }
+  if (typeof cw.used_percentage === 'number') { if (!reliefActive) applyContextFullness(cw.used_percentage / 100); lastStatusCtxAt = Date.now(); }
   if (cw.context_window_size) state.ctxWindow = cw.context_window_size;
   if (typeof cw.total_input_tokens === 'number') state.ctxTokens = cw.total_input_tokens;
   else if (cw.current_usage) state.ctxTokens = (cw.current_usage.input_tokens || 0) + (cw.current_usage.cache_creation_input_tokens || 0) + (cw.current_usage.cache_read_input_tokens || 0);
@@ -374,16 +467,38 @@ function readBody(req, cb) {
   req.on('error', () => cb(''));
 }
 
+// localhost is NOT a trust boundary — these guard against a malicious local process or a web page
+// reaching the daemon via DNS-rebinding (which makes the browser send our requests with a foreign
+// Host/Origin). curl/node clients send Host=127.0.0.1:PORT and no Origin, so they pass untouched.
+const ALLOWED_HOSTS = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`, `[::1]:${PORT}`, '127.0.0.1', 'localhost', '[::1]']);   // any localhost host (rebinding sends a foreign DOMAIN, never these)
+const ALLOWED_ORIGINS = new Set([`http://127.0.0.1:${PORT}`, `http://localhost:${PORT}`, `http://[::1]:${PORT}`]);
+const MUTATING_PATHS = new Set(['/event', '/status', '/claim', '/set', '/demo', '/detect']);   // cross-site state changes are blocked
+const MAX_CLIENTS = Number(process.env.ANIMAYTE_MAX_CLIENTS) || 50;   // cap SSE connections (one real overlay needs 1)
+
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://localhost:${PORT}`);
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // a malformed request-target (`GET /%`, a raw garbage line from a port scanner, etc.) makes
+  // `new URL` THROW — outside a guard it becomes an unhandled rejection that, on Node ≥15, EXITS
+  // the process and kills the pet for the whole session. Parse defensively → 400.
+  let url;
+  try { url = new URL(req.url, `http://127.0.0.1:${PORT}`); }
+  catch { try { res.writeHead(400); res.end('bad request'); } catch {} return; }
+  // reject a foreign Host (DNS-rebinding), reflect CORS only to a same-origin browser (so a page
+  // can't READ /health etc. cross-origin), and block cross-site STATE changes (CSRF/rebinding).
+  const host = String(req.headers.host || '').toLowerCase();
+  if (host && !ALLOWED_HOSTS.has(host)) { try { res.writeHead(421); res.end('bad host'); } catch {} return; }
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.has(origin)) res.setHeader('Access-Control-Allow-Origin', origin);   // curl/native ignore CORS and still work
+  const sfs = req.headers['sec-fetch-site'];
+  const crossSite = (sfs && sfs !== 'same-origin' && sfs !== 'none') || (origin && !ALLOWED_ORIGINS.has(origin));
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+  if (crossSite && MUTATING_PATHS.has(url.pathname)) { try { res.writeHead(403); res.end('forbidden'); } catch {} return; }
 
   if (url.pathname === '/events') {
+    if (clients.size >= MAX_CLIENTS) { res.writeHead(503); res.end('busy'); return; }   // bound concurrent SSE connections (DoS)
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
     res.write('retry: 1500\n\n');
-    clients.add(res);
-    snapshotTo(res);
+    snapshotTo(res);    // write a CONTIGUOUS snapshot FIRST (snapshotTo is synchronous)…
+    clients.add(res);   // …then register for live frames, so a broadcast can't interleave the snapshot (bird-count drift on reconnect)
     // a REAL ping event (not an SSE `:` comment) so the client's onmessage fires — that lets the
     // overlay run a heartbeat watchdog and detect a half-open stream. Renderers ignore cmd:'ping'.
     const ping = setInterval(() => { try { res.write('data: {"cmd":"ping"}\n\n'); } catch { clearInterval(ping); clients.delete(res); } }, 20000);
@@ -394,7 +509,9 @@ const server = http.createServer(async (req, res) => {
     readBody(req, async (body) => {
       try {
         const ev = JSON.parse(body || '{}');
-        if (ownsEvent(ev.session_id)) await enqueueEvent(ev);  // ignore other sessions; serialize ours
+        if (ownsEvent(ev.session_id)) { ownerConfirmed = true; lastOwnerEventAt = Date.now(); await enqueueEvent(ev); }  // our session; serialize (+ mark the owner alive)
+        else if (maybeAdopt(ev.session_id)) await enqueueEvent(ev);   // stale soft owner → adopt the live session
+        else noteForeign(ev.session_id);                              // truly foreign → drop, but record it
       } catch {}
       try { res.writeHead(200); res.end('ok'); } catch {}     // poster (curl -m) may have already hung up
     });
@@ -404,7 +521,8 @@ const server = http.createServer(async (req, res) => {
     readBody(req, (body) => {
       try {
         const j = JSON.parse(body || '{}');
-        if (ownsEvent(j.session_id)) handleStatus(j);
+        if (ownsEvent(j.session_id)) { ownerConfirmed = true; lastOwnerEventAt = Date.now(); handleStatus(j); }   // a heartbeating statusline also keeps the owner "alive"
+        else noteForeign(j.session_id);   // statuslines confirm but don't drive adoption (hooks do — clearer "this session is live")
       } catch {}
       try { res.writeHead(200); res.end('ok'); } catch {}
     });
@@ -416,6 +534,10 @@ const server = http.createServer(async (req, res) => {
     readBody(req, (body) => {
       let sid = null; try { sid = JSON.parse(body || '{}').session_id || null; } catch {}
       ownerSession = sid;
+      ownerLocked = !!sid; ownerConfirmed = !!sid;   // an explicit claim is authoritative (not auto-overridden)
+      lastOwnerEventAt = sid ? Date.now() : 0;        // start the new owner's grace clock
+      adoptCandidate = null; adoptStreak = 0;
+      filteredEvents = 0; lastForeignSession = null; lastForeignAt = 0;   // fresh owner ⇒ reset the foreign-drop tally
       if (waitTimer) { clearTimeout(waitTimer); waitTimer = null; }  // no stray "waiting" glance from the previous owner
       freshStart();
       say('👋 hi! I’m watching this session');
@@ -424,7 +546,7 @@ const server = http.createServer(async (req, res) => {
     });
     return;
   }
-  if (url.pathname === '/health') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, owner: ownerSession, clients: clients.size, rss: process.memoryUsage().rss, state })); return; }
+  if (url.pathname === '/health') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, owner: ownerSession, clients: clients.size, rss: process.memoryUsage().rss, filtered: filteredEvents, lastForeignSession, lastForeignAt, state })); return; }
 
   // expression tester — run the REAL detector on arbitrary text and report the result
   if (url.pathname === '/detect') {
@@ -498,3 +620,9 @@ server.on('error', (err) => {
 });
 
 server.listen(PORT, '127.0.0.1', onListening);
+
+// Last-resort guards: the daemon visualizes a pet — it must NEVER exit on a single bad request or a
+// stray rejection from an async handler. Log and keep serving (the daemon holds only soft visual
+// state, so surviving in a degraded state beats a dead pet for the rest of the session).
+process.on('unhandledRejection', (e) => console.error('  🐣 animayte unhandledRejection —', (e && e.message) || e));
+process.on('uncaughtException',  (e) => console.error('  🐣 animayte uncaughtException —',  (e && e.message) || e));

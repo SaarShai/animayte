@@ -1,0 +1,11 @@
+{
+  "fixture": "statusline-sample.json",
+  "exercises": "handleStatus() reads context_window.{used_percentage,context_window_size,total_input_tokens,current_usage}, model.{display_name,id}, cost.{total_cost_usd,total_lines_added,total_lines_removed}, rate_limits.{five_hour,seven_day}.used_percentage, effort.level, thinking.enabled. This documents that shape.",
+  "documented_not_captured": true,
+  "provenance": [
+    {
+      "source": "docs/session-signals.md (values \"seen\") + animayte.mjs handleStatus()",
+      "exercises": "the real statusline contract"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "id": "codex-demo",
+  "displayName": "Codex Demo Blob",
+  "description": "A license-clean synthetic Codex pet that animayte generates to exercise the 8×9 atlas player.",
+  "spritesheetPath": "spritesheet.png"
+}

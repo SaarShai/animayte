@@ -4,3 +4,19 @@ desktop/rive/.build/
 node_modules/
 .DS_Store
 tools/preview-out/
+
+# Real third-party Codex/Petdex pets dropped in locally for the demo. The committed
+# Codex pet is the license-clean synthetic fixture (pets/codex-demo); real pets are
+# fetched on demand (see docs/codex-format.md) and stay uncommitted.
+pets/pixel-coder/
+pets/shrimpy/
+
+# --- token-economy: local dev-agent skills (NOT part of the animayte plugin) ---
+# Installed for agents working ON animayte; intentionally uncommitted so they
+# never ship inside the published plugin or pollute the product repo.
+.claude/skills/
+.claude/agents/
+.claude/settings.local.json
+/wiki/
+/graphify-out/
+.token-economy/

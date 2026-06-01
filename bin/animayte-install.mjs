@@ -39,9 +39,14 @@ export const HOOK_EVENTS = [
 const MATCHER_EVENTS = new Set(['PreToolUse', 'PostToolUse']);
 
 // ---- the canonical animayte settings contributions ----
-export function hookCommand(port = DEFAULT_PORT) {
-  // fire-and-forget: a 0.4s cap + `|| true` means a down/slow daemon never stalls Claude Code.
-  return `curl -s -m 0.4 -X POST http://127.0.0.1:${port}/event -H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true ${MARKER}`;
+export function hookCommand(port = DEFAULT_PORT, repoRoot = REPO_ROOT) {
+  // fire-and-forget + CROSS-PLATFORM: a `node` forwarder, not curl. On Windows without Git Bash, CC
+  // runs the hook via PowerShell where `curl` is an alias for Invoke-WebRequest (rejects --data-binary)
+  // → the curl hooks failed silently. `node` is guaranteed present and identical on every OS. The
+  // forwarder caps at 0.4s and always exits 0, so a down/slow daemon never stalls Claude Code (same
+  // contract as the old `curl -m 0.4 … || true`). Absolute path for the global install. The trailing
+  // MARKER is a harmless comment (sh/PowerShell) / ignored arg (cmd) used only to recognize our hooks.
+  return `node "${join(repoRoot, 'bin', 'animayte-post.mjs')}" event ${port} ${MARKER}`;
 }
 export function statuslineCommand(repoRoot = REPO_ROOT) {
   // global install → absolute path (no $CLAUDE_PROJECT_DIR outside the repo).
@@ -63,12 +68,17 @@ const clone = (o) => (o == null ? o : JSON.parse(JSON.stringify(o)));
  * never duplicates. Never clobbers the user's own hooks or a non-animayte statusLine.
  */
 export function applyInstall(settings, { port = DEFAULT_PORT, repoRoot = REPO_ROOT, hooks = true } = {}) {
-  const s = clone(settings) || {};
+  // settings MUST be a plain object. A JSON array or scalar (a corrupted/migrated file) would let
+  // `s.hooks = …` be a silent no-op — JSON.stringify drops named keys off an array, so install would
+  // write back byte-identical, skip the backup, and still print "installed" while wiring NOTHING.
+  const isPlainObj = settings && typeof settings === 'object' && !Array.isArray(settings);
+  const s = isPlainObj ? clone(settings) : {};
   const warnings = [];
+  if (settings != null && !isPlainObj) warnings.push(`your settings file was a ${Array.isArray(settings) ? 'JSON array' : typeof settings}, not an object — Claude Code can't read hooks/statusLine from it; animayte replaced it with a valid object (your original is in the .bak).`);
   s.hooks = s.hooks && typeof s.hooks === 'object' && !Array.isArray(s.hooks) ? s.hooks : {};
 
   if (hooks) {
-    const cmd = hookCommand(port);
+    const cmd = hookCommand(port, repoRoot);
     for (const ev of HOOK_EVENTS) {
       const entry = MATCHER_EVENTS.has(ev)
         ? { matcher: '*', hooks: [{ type: 'command', command: cmd }] }
@@ -109,7 +119,7 @@ export function applyInstall(settings, { port = DEFAULT_PORT, repoRoot = REPO_RO
  * everything else byte-for-byte. install→uninstall round-trips back to the original.
  */
 export function applyUninstall(settings) {
-  const s = clone(settings) || {};
+  const s = settings && typeof settings === 'object' && !Array.isArray(settings) ? clone(settings) : {};
   let changed = false;
   if (s.hooks && typeof s.hooks === 'object' && !Array.isArray(s.hooks)) {
     for (const ev of Object.keys(s.hooks)) {
@@ -200,8 +210,11 @@ function installedHookPort(settings) {
   const groups = Object.values(settings.hooks || {}).flat();
   for (const g of groups) {
     if (!isAnimayteHookGroup(g)) continue;
-    const m = String(g.hooks.find((h) => isAnimayteHookCmd(h.command)).command).match(/:(\d+)\/event/);
+    const cmd = String(g.hooks.find((h) => isAnimayteHookCmd(h.command)).command);
+    // node form: `… animayte-post.mjs" event <port> #animayte`  ·  legacy curl form: `…:<port>/event …`
+    const m = cmd.match(/animayte-post\.mjs"?\s+\S+\s+(\d+)/) || cmd.match(/:(\d+)\/event/);
     if (m) return Number(m[1]);
+    return DEFAULT_PORT;   // an animayte hook with no explicit port ⇒ the daemon default
   }
   return null;
 }
@@ -222,7 +235,7 @@ export async function doctor({ port = Number(process.env.ANIMAYTE_PORT) || DEFAU
   const hasGlobalStatus = !!(global.statusLine && isAnimayteStatuslineCmd(global.statusLine.command));
   const project = existsSync(projectSettings) ? await readSettings(projectSettings) : {};
   const hasProjectHooks = installedHookPort(project) != null;
-  const pluginEnabled = !!(global.enabledPlugins && Object.keys(global.enabledPlugins).some((k) => /^animayte(@|$)/.test(k)));
+  const pluginEnabled = !!(global.enabledPlugins && typeof global.enabledPlugins === 'object' && Object.entries(global.enabledPlugins).some(([k, v]) => v && /^animayte(@|$)/.test(k)));   // a DISABLED (false) plugin must read as not-enabled
 
   if (hasGlobalHooks) ok('hooks installed globally', `port ${globalHookPort} · ${path}`);
   else if (pluginEnabled) ok('hooks via the animayte plugin', 'enabled in ~/.claude/settings.json');
@@ -240,7 +253,13 @@ export async function doctor({ port = Number(process.env.ANIMAYTE_PORT) || DEFAU
   const health = await probeHealth(port);
   if (health && health.ok) {
     ok('daemon is up', `http://127.0.0.1:${port}`);
-    if (health.owner) ok('pet is bound to one session', `owner ${String(health.owner).slice(0, 8)}… (other sessions ignored)`);
+    // ownership mismatch = the silent-death failure mode: the daemon is bound to a STALE session id
+    // (the session was continued/restarted with a new id), so every real hook is dropped and the pet
+    // looks dead with no error. doctor runs inside the session, so CLAUDE_CODE_SESSION_ID is the live id.
+    const liveSid = process.env.CLAUDE_CODE_SESSION_ID || null;
+    if (health.owner && liveSid && health.owner !== liveSid)
+      bad('pet is bound to a DIFFERENT session', `owner ${String(health.owner).slice(0, 8)}… but this session is ${String(liveSid).slice(0, 8)}… — every hook is being dropped. Run  /animayte  (or  bin/animayte start ) to claim the pet for this session.`);
+    else if (health.owner) ok('pet is bound to one session', `owner ${String(health.owner).slice(0, 8)}… (other sessions ignored)`);
     else info('pet is not bound to a session — it reflects whichever session acted most recently (run bin/animayte start from the session you want).');
     const st = health.state || {};
     // 3) is a live session actually driving it? (lastEventAt = last REAL hook/statusline,
@@ -252,6 +271,9 @@ export async function doctor({ port = Number(process.env.ANIMAYTE_PORT) || DEFAU
       if (typeof st.ctxPct === 'number') bits.push(`ctx ${st.ctxPct}%`);
       if (st.mood) bits.push(`mood ${st.mood}`);
       ok('a live session is driving the pet', `${bits.join(' · ') || 'recent activity'} (${Math.round(ageMs / 1000)}s ago)`);
+    } else if (health.filtered > 0) {
+      // events ARE arriving but being dropped by ownership — the clearest stale-owner signal
+      bad('the pet is receiving events but ignoring them', `${health.filtered} event(s) dropped${health.lastForeignSession ? ` from session ${String(health.lastForeignSession).slice(0, 8)}…` : ''} — the pet is owned by a different session. Run  /animayte  to claim it for this one.`);
     } else {
       info('daemon up but no recent session events — start a Claude Code session (with hooks installed) to see it react.');
     }
@@ -276,7 +298,7 @@ async function main(argv) {
     // them globally too would fire every event twice. Default to statusline-only in that
     // case (the one thing the plugin doesn't provide); --with-hooks forces the full install.
     const before = await readSettings(path);
-    const pluginEnabled = !!(before.enabledPlugins && Object.keys(before.enabledPlugins).some((k) => /^animayte(@|$)/.test(k)));
+    const pluginEnabled = !!(before.enabledPlugins && typeof before.enabledPlugins === 'object' && Object.entries(before.enabledPlugins).some(([k, v]) => v && /^animayte(@|$)/.test(k)));   // a DISABLED (false) plugin must read as not-enabled
     const forceHooks = argv.includes('--with-hooks');
     const hooks = forceHooks || !pluginEnabled;
     const r = await installToFile(path, { port, hooks });

@@ -12,6 +12,24 @@
       "runtimeExecutable": "sh",
       "runtimeArgs": ["-c", "ANIMAYTE_PORT=4367 ANIMAYTE_PET=bean ANIMAYTE_PERSONALITY=chipper node animayte.mjs"],
       "port": 4367
+    },
+    {
+      "name": "animayte-codex",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "ANIMAYTE_PORT=4368 ANIMAYTE_PET=codex-demo node animayte.mjs"],
+      "port": 4368
+    },
+    {
+      "name": "animayte-pixel",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "ANIMAYTE_PORT=4369 ANIMAYTE_PET=pixel-coder node animayte.mjs"],
+      "port": 4369
+    },
+    {
+      "name": "grid",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["grid/serve.mjs", "4370"],
+      "port": 4370
     }
   ]
 }

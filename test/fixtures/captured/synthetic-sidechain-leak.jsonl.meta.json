@@ -1,0 +1,23 @@
+{
+  "fixture": "synthetic-sidechain-leak.jsonl",
+  "exercises": "isSidechain:true turns (sub-agent) interleaved with a main turn. readTranscriptTail must SKIP the sidechain turns so a sub-agent's small usage / its text never drives the main pet — the sub-agent-leak case.",
+  "synthesized": true,
+  "synthesis_note": "The real project transcripts contain ZERO isSidechain:true turns (sidechainTrue=0). This fixture is SYNTHESIZED: a real main-thread assistant turn shape with isSidechain toggled to true on the sub-agent lines. Only the boolean flag + placeholder prose are non-verbatim; the field shape and usage numbers are real.",
+  "provenance": [
+    {
+      "source_transcript": "f132ab5d-65b4-4e26-93ee-d315f74c882c.jsonl",
+      "source_line": 2015,
+      "exercises": "real main-thread near-full assistant turn (the head that must win)"
+    },
+    {
+      "source_transcript": "d8396dd6-a352-421a-a41c-e6be09b19fc9.jsonl",
+      "source_line": 7,
+      "exercises": "real lean usage reused as the sub-agent's (smaller) usage"
+    }
+  ],
+  "ground_truth": {
+    "main_tokens": 972431,
+    "sidechain_tokens": 32220
+  },
+  "redaction": "all prose → placeholders; usage numbers are verbatim; isSidechain:true is the synthesized part."
+}

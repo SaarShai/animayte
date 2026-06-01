@@ -1,13 +1,13 @@
 {
   "hooks": {
-    "SessionStart":     [{ "hooks": [{ "type": "command", "command": "curl -s -m 0.4 -X POST http://127.0.0.1:4321/event -H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }],
-    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "curl -s -m 0.4 -X POST http://127.0.0.1:4321/event -H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }],
-    "PreToolUse":       [{ "matcher": "*", "hooks": [{ "type": "command", "command": "curl -s -m 0.4 -X POST http://127.0.0.1:4321/event -H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }],
-    "PostToolUse":      [{ "matcher": "*", "hooks": [{ "type": "command", "command": "curl -s -m 0.4 -X POST http://127.0.0.1:4321/event -H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }],
-    "SubagentStop":     [{ "hooks": [{ "type": "command", "command": "curl -s -m 0.4 -X POST http://127.0.0.1:4321/event -H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }],
-    "Notification":     [{ "hooks": [{ "type": "command", "command": "curl -s -m 0.4 -X POST http://127.0.0.1:4321/event -H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }],
-    "Stop":             [{ "hooks": [{ "type": "command", "command": "curl -s -m 0.4 -X POST http://127.0.0.1:4321/event -H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }],
-    "PreCompact":       [{ "hooks": [{ "type": "command", "command": "curl -s -m 0.4 -X POST http://127.0.0.1:4321/event -H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }],
-    "SessionEnd":       [{ "hooks": [{ "type": "command", "command": "curl -s -m 0.4 -X POST http://127.0.0.1:4321/event -H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true" }] }]
+    "SessionStart":     [{ "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/animayte-post.mjs\" event" }] }],
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/animayte-post.mjs\" event" }] }],
+    "PreToolUse":       [{ "matcher": "*", "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/animayte-post.mjs\" event" }] }],
+    "PostToolUse":      [{ "matcher": "*", "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/animayte-post.mjs\" event" }] }],
+    "SubagentStop":     [{ "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/animayte-post.mjs\" event" }] }],
+    "Notification":     [{ "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/animayte-post.mjs\" event" }] }],
+    "Stop":             [{ "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/animayte-post.mjs\" event" }] }],
+    "PreCompact":       [{ "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/animayte-post.mjs\" event" }] }],
+    "SessionEnd":       [{ "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/animayte-post.mjs\" event" }] }]
   }
 }

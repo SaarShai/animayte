@@ -1,0 +1,31 @@
+{
+  "fixture": "real-compact-boundary.jsonl",
+  "exercises": "readTranscriptTail must STOP at compact_boundary (newest→oldest) and read the post-compact usage, not the pre-compact near-full one — the /compact reinflate bug.",
+  "provenance": [
+    {
+      "source_transcript": "1292bf01-8de2-4409-93ba-c03538f33121.jsonl",
+      "source_line": 1561,
+      "exercises": "pre-compact assistant usage (near-full)"
+    },
+    {
+      "source_transcript": "1292bf01-8de2-4409-93ba-c03538f33121.jsonl",
+      "source_line": 1573,
+      "exercises": "the real compact_boundary system marker"
+    },
+    {
+      "source_transcript": "1292bf01-8de2-4409-93ba-c03538f33121.jsonl",
+      "source_line": 1590,
+      "exercises": "first post-compact assistant usage (recovered)"
+    }
+  ],
+  "ground_truth": {
+    "pre_compact_tokens": 830763,
+    "post_compact_tokens": 39739,
+    "compactMetadata": {
+      "trigger": "manual",
+      "preTokens": 833776,
+      "postTokens": 10667
+    }
+  },
+  "redaction": "all assistant prose replaced with a fixed placeholder; usage numbers + boundary marker are verbatim from the real transcript."
+}

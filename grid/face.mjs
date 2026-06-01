@@ -23,7 +23,11 @@ export const EYES = {
   stars:     G(['.D...D.', 'DDD.DDD', '.D...D.']),          // ✦✦ sparkle
   look_up:   G(['DD..DD', '......']),                        // pupils raised (thinking)
   closed:    G(['DDD..DDD']),                                // ___ resting
-  focused:   G(['DDDD..DDDD']),                              // narrowed, intense (determined)
+  focused:   G(['DDDD..DDDD']),                              // narrowed, intense (legacy determined — reads as a glare)
+  lock:      G(['DDD..DDD', 'DWD..DWD']),                    // open but level-narrowed, white spark — locked-in (resolve)
+  steady:    G(['DD..DD', 'DD..DD', '.D..D.']),              // open, calm, gaze settled forward (resolve)
+  calm:      G(['D....D', '.DDDD.']),                        // soft ︶︶ relaxed lids — serene/content
+  avert:     G(['......', 'DD..DD']),                        // pupils dropped low — looking away/down (sheepish/self-conscious)
 };
 const BLINK = G(['DDD..DDD']); // transient over any expression
 
@@ -32,7 +36,11 @@ export const BROWS = {
   one_raised: G(['......DD', 'DD......']),                  // skeptical asymmetry
   worried:    G(['..DD..DD..', 'DD......DD']),              // inner-up
   sad:        G(['..DDDD..', '.D....D.', 'D......D']),      // strong inner-up angle
-  determined: G(['DD......DD', '..DD..DD..']),              // outer-up / inner-down furrow — focused resolve
+  determined: G(['DD......DD', '..DD..DD..']),              // LEGACY: outer-up / inner-down furrow — reads as anger/menace
+  // resolve brows: LOW + LEVEL (no inner-down spike = no anger). Knit = a gentle centre
+  // draw-together for concentration; flat = a clean lowered bar for calm steel.
+  firm:      G(['..............', 'DDDDDD..DDDDDD']),        // low, level, heavy bar — steely focus (drops close to the eyes)
+  knit:      G(['..............', '..DDDD..DDDD..', '....DDDDDD....']), // low brows knitting into a centre furrow — concentration
 };
 
 // ── mouth = MUSTACHE, morphed to the feeling ────────────────────────────────────

@@ -1,10 +1,7 @@
 {
   "name": "animayte",
   "owner": { "name": "Saar Shai" },
-  "metadata": {
-    "description": "animayte — the pet that visualizes your AI session",
-    "version": "0.1.0"
-  },
+  "description": "animayte — the pet that visualizes your AI session",
   "plugins": [
     {
       "name": "animayte",

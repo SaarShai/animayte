@@ -1,0 +1,27 @@
+{
+  "fixture": "real-usage-full-fieldset.jsonl",
+  "exercises": "A usage-bearing assistant turn with the FULL real field set (output_tokens, server_tool_use, cache_creation.ephemeral_*, iterations, speed, service_tier). Locks the shape so a test catches the day the daemon starts reading a new field whose real shape has drifted.",
+  "provenance": [
+    {
+      "source_transcript": "00dfd1b0-c644-4d62-bc9d-85eae9ee0b8f.jsonl",
+      "source_line": 20,
+      "exercises": "assistant turn with the complete usage object"
+    }
+  ],
+  "ground_truth": {
+    "tokens": 39739,
+    "usage_keys": [
+      "input_tokens",
+      "cache_creation_input_tokens",
+      "cache_read_input_tokens",
+      "output_tokens",
+      "service_tier",
+      "inference_geo",
+      "speed",
+      "server_tool_use",
+      "cache_creation",
+      "iterations"
+    ]
+  },
+  "redaction": "prose → placeholder; the entire usage object is verbatim (scalars + nested ephemeral/iterations)."
+}

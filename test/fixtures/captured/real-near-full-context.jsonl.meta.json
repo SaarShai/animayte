@@ -1,0 +1,16 @@
+{
+  "fixture": "real-near-full-context.jsonl",
+  "exercises": "The near-full body extreme: the fullest real assistant usage. With no boundary, readTranscriptTail must surface a near-full head (the body-swell signature).",
+  "provenance": [
+    {
+      "source_transcript": "f132ab5d-65b4-4e26-93ee-d315f74c882c.jsonl",
+      "source_line": 2015,
+      "exercises": "fullest real assistant usage"
+    }
+  ],
+  "ground_truth": {
+    "tokens": 972431,
+    "pct_of_1M": 97.2
+  },
+  "redaction": "prose → placeholder; usage verbatim."
+}

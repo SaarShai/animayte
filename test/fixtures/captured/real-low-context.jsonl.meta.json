@@ -1,0 +1,16 @@
+{
+  "fixture": "real-low-context.jsonl",
+  "exercises": "The low body extreme: the leanest (>0) real assistant usage. readTranscriptTail must surface a near-empty head.",
+  "provenance": [
+    {
+      "source_transcript": "d8396dd6-a352-421a-a41c-e6be09b19fc9.jsonl",
+      "source_line": 7,
+      "exercises": "leanest real assistant usage"
+    }
+  ],
+  "ground_truth": {
+    "tokens": 32220,
+    "pct_of_1M": 3.2
+  },
+  "redaction": "prose → placeholder; usage verbatim."
+}

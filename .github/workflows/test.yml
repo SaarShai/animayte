@@ -1,0 +1,62 @@
+name: test
+
+# animayte is a zero-dependency, install-anywhere Claude Code plugin. A recent class
+# of bug was cross-platform (hooks silently failing on Windows), and there was NO CI.
+# This proves every change green on macOS / Windows / Linux across the supported Node
+# range before it can merge. See docs/ARCHITECTURE.md §11 (suite map) and §12 (cross-OS).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Only the latest run per ref needs to be green; cancel superseded in-flight runs.
+# (main is excluded from cancellation so pushes to it always complete.)
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+# Least privilege: the suite only reads the checked-out code.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }} · node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ['18', '20', 'lts/*']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # No cache: the project ships no lockfile (zero deps), so there is nothing to cache.
+      - name: Set up Node ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Node / platform info
+        run: node --version
+
+      # TRIPWIRE: enforce the zero-dependency guarantee. Fails if package.json ever
+      # declares a runtime/dev/optional/peer dependency. Node builtins only.
+      - name: Zero-dependency tripwire
+        run: node .github/scripts/check-zero-deps.mjs
+
+      # Cheap dep-free lint: parse every shipped *.mjs with `node --check` on THIS OS.
+      # Catches syntax slips that one platform/Node might tolerate and another won't,
+      # and proves files the test suite never imports still parse.
+      - name: Syntax check every .mjs (node --check)
+        run: node .github/scripts/check-syntax.mjs
+
+      # The real suite. The hand-rolled runner exits non-zero if any suite fails.
+      # e2e.test.mjs self-gates when a POSIX sh/curl is unavailable (bare Windows
+      # runners), so it skips loudly rather than failing spuriously — see .github/README.md.
+      - name: Run the test suite
+        run: node test/run.mjs

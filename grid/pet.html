@@ -12,7 +12,7 @@
   /* speech bubble — small, fades out, never steals clicks */
   #say {
     position: absolute; left: 50%; top: -6px; transform: translate(-50%, -100%);
-    max-width: 240px; padding: 6px 10px; border-radius: 10px; white-space: nowrap;
+    max-width: 220px; padding: 6px 10px; border-radius: 10px; white-space: normal; overflow-wrap: anywhere; line-height: 1.3;
     background: rgba(16, 20, 32, 0.86); color: #e8ecf4; box-shadow: 0 2px 10px rgba(0,0,0,.35);
     opacity: 0; transition: opacity .25s; pointer-events: none;
   }
@@ -30,6 +30,8 @@
 <script type="module">
   import { createGridRuntime } from '/grid/runtime.mjs';
   import { GRID } from '/grid/creature.mjs';
+  import { applyCommand } from '/grid/dispatch.mjs';
+  import { createSseSupervisor } from '/grid/sse.mjs';
 
   const canvas = document.getElementById('c');
   const pet = createGridRuntime(canvas, { cell: 10 });
@@ -50,27 +52,9 @@
     clearTimeout(sayTimer); sayTimer = setTimeout(() => sayEl.classList.remove('show'), ms);
   }
 
-  // daemon SSE command → grid runtime (same vocabulary animayte.html uses)
-  function dispatch(m) {
-    switch (m && m.cmd) {
-      case 'hatch': case 'wake': pet.wake(); break;
-      case 'reset': case 'resetEgg': pet.reset(); break;
-      case 'mood': pet.setMood(m.value); break;
-      case 'fullness': pet.setFullness(m.value); break;
-      case 'addBird': pet.addBird(m.label); break;
-      case 'removeBird': pet.removeBird(); break;
-      case 'clearBirds': pet.clearBirds(); break;
-      case 'relief': pet.relief(); break;
-      case 'react': pet.reactByName(m.name); break;
-      case 'endReact': pet.toIdle(); break;
-      case 'sleep': pet.sleep(); break;
-      case 'say': say(m.text, m.ms); break;
-      // additive: the full FeatureSpec (Route 1 → Route 2). No-op until the grid runtime
-      // exposes applySpec; the legacy 'mood'/'react' cmds keep driving the pet today.
-      case 'express': if (pet.applySpec) pet.applySpec(m.spec); break;
-      // 'moodLevel' is intentionally ignored (grid runtime has no mood-drift tint)
-    }
-  }
+  // daemon SSE command → grid runtime. The vocabulary lives in grid/dispatch.mjs (shared, unit-tested)
+  // so the daemon's broadcast set and the renderer's handled set can't silently drift — see
+  // test/contract.test.mjs + test/dispatch.test.mjs. ('moodLevel'/'ping' are intentionally ignored here.)
 
   // seed mood/fullness/phase from /health for a fast first paint. NOT birds — the SSE snapshot
   // is authoritative for birds (clearBirds + addBird) and seeding them here too would race it and
@@ -83,30 +67,20 @@
     if (s.phase === 'sleeping') pet.sleep();
   }).catch(() => {});
 
-  // SSE with a reconnect supervisor + heartbeat watchdog — survives a daemon restart without a
-  // stuck pet. The daemon resends a full snapshot on every (re)connect and a cmd:'ping' every
-  // 20s; if no bytes arrive for 45s the stream is stale (half-open) so we force a reconnect.
-  let es = null, everLive = false, backoff = 1000, timer = 0, beat = 0;
-  const schedule = () => { clearTimeout(timer); timer = setTimeout(open, backoff); backoff = Math.min(backoff * 1.7, 10000); };
-  const kick = () => { clearTimeout(beat); beat = setTimeout(() => { try { if (es) es.close(); } catch (_) {} open(); }, 45000); };
-  function open() {
-    clearTimeout(timer);
-    if (es) { try { es.close(); } catch (_) {} es = null; }   // never leak a second live stream
-    try { es = new EventSource('/events'); } catch (_) { schedule(); return; }
-    kick();
-    es.onopen = () => { everLive = true; backoff = 1000; pill.textContent = '● live'; pill.style.color = '#19b36b'; kick(); };
-    es.onmessage = (e) => { kick(); try { dispatch(JSON.parse(e.data)); } catch (_) {} };
-    es.onerror = () => {
-      pill.textContent = everLive ? '… reconnecting' : '○ waiting…';
-      pill.style.color = everLive ? '#e3a008' : '';
-      // take over reconnection on ANY error — don't rely on the native EventSource retry, which in
-      // WKWebView can sit in CONNECTING forever after a daemon restart. schedule() de-dupes + backs off.
-      try { if (es) es.close(); } catch (_) {}
-      schedule();
-    };
-  }
-  open();
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && (!es || es.readyState !== 1)) open(); });
+  // SSE with a reconnect supervisor + heartbeat watchdog — survives a daemon restart and WKWebView's
+  // stuck-in-CONNECTING bug without a frozen pet. The reconnect/backoff/watchdog logic lives in
+  // grid/sse.mjs (dependency-injected, fake-clock unit-tested — test/sse.test.mjs). The daemon
+  // resends a full snapshot on every (re)connect and a cmd:'ping' every 20s; no bytes for 45s ⇒
+  // half-open stream ⇒ force a reconnect.
+  const sup = createSseSupervisor({
+    url: '/events',
+    EventSource: window.EventSource,
+    onMessage: (e) => { try { applyCommand(pet, JSON.parse(e.data), { say }); } catch (_) {} },
+    onOpen: () => { pill.textContent = '● live'; pill.style.color = '#19b36b'; },
+    onDown: (everLive) => { pill.textContent = everLive ? '… reconnecting' : '○ waiting…'; pill.style.color = everLive ? '#e3a008' : ''; },
+  });
+  sup.open();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && !sup.isLive()) sup.open(); });
 
   window.pet = pet; // dev affordance
 </script>

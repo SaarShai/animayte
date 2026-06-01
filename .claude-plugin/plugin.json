@@ -1,8 +1,9 @@
 {
   "name": "animayte",
-  "version": "0.1.0",
   "description": "A virtual pet that visualizes your live AI session — context window is its body, sub-agents are orbiting birds, sentiment is its face.",
-  "author": { "name": "Saar Shai" },
-  "keywords": ["pet", "visualization", "fun", "hooks", "tamagotchi", "statusline", "companion"],
-  "homepage": "https://github.com/saarshai/animayte"
+  "author": { "name": "Saar Shai", "url": "https://github.com/SaarShai" },
+  "homepage": "https://github.com/SaarShai/animayte",
+  "repository": "https://github.com/SaarShai/animayte",
+  "license": "MIT",
+  "keywords": ["pet", "visualization", "fun", "hooks", "tamagotchi", "statusline", "companion"]
 }

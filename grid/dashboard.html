@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>animayte · Dijon library dashboard</title>
+<style>
+  :root { color-scheme: dark; --gold:#e6a817; --rose:#ec8a7e; --ink:#0a0e1a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; padding: 0 0 80px;
+    background: radial-gradient(1300px 800px at 50% -12%, #1b2440, #0a0e1a 72%);
+    font: 13px/1.45 ui-monospace, "SF Mono", Menlo, monospace; color: #aeb6c8; }
+
+  header { position: sticky; top: 0; z-index: 10; backdrop-filter: blur(8px);
+    background: rgba(10,14,26,.82); border-bottom: 1px solid rgba(255,255,255,.07);
+    padding: 14px 24px; display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+  header h1 { font-size: 13px; letter-spacing: .16em; text-transform: uppercase; color: #cdd5e6; font-weight: 700; margin: 0; }
+  header .meta { color: #59617a; font-size: 11px; }
+  .ctrl { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .ctrl label { color: #7c869c; font-size: 11px; }
+  input[type=range] { accent-color: var(--gold); }
+
+  main { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+  section { margin-top: 34px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,.06); }
+  .sec-head h2 { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: #8893aa; margin: 0; font-weight: 700; }
+  .sec-head .count { color: #4d556b; font-size: 11px; }
+  .sec-head .desc { color: #59617a; font-size: 11px; margin-left: auto; text-align: right; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; }
+  .card { background: rgba(255,255,255,.022); border: 1px solid rgba(255,255,255,.07); border-radius: 14px; padding: 14px 12px 12px; text-align: center; position: relative; }
+  .card.base { border-top: 2px solid rgba(120,130,160,.5); }
+  .card.pos  { border-top: 2px solid rgba(230,168,23,.55); }
+  .card.self { border-top: 2px solid rgba(236,138,126,.6); }
+  .card.item { border-top: 2px solid rgba(120,200,247,.45); }
+  .row { display: flex; align-items: flex-end; justify-content: center; gap: 14px; margin-bottom: 9px; }
+  .chip { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .chip small { color: #4d556b; font-size: 9px; letter-spacing: .03em; }
+  canvas { image-rendering: pixelated; display: block; }
+  .name { color: var(--gold); font-size: 13px; letter-spacing: .03em; }
+  .card.self .name { color: var(--rose); }
+  .card.item .name { color: #9fd4f5; }
+  .mean { color: #7c869c; font-size: 10.5px; margin: 3px 2px 6px; min-height: 24px; }
+  .spec { color: #4d556b; font-size: 10px; line-height: 1.5; }
+  .spec b { color: #8893aa; font-weight: 600; }
+
+  /* compositor */
+  .comp { display: grid; grid-template-columns: 300px 1fr; gap: 24px; align-items: start;
+    background: rgba(255,255,255,.022); border: 1px solid rgba(255,255,255,.07); border-radius: 16px; padding: 20px; }
+  .comp .stage { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .comp .stagebox { background: rgba(0,0,0,.25); border-radius: 12px; padding: 18px 28px; }
+  .panel { display: flex; flex-direction: column; gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field > span { color: #8893aa; font-size: 11px; letter-spacing: .04em; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+  .seg button { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); color: #aeb6c8;
+    border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 11px; cursor: pointer; }
+  .seg button.on { background: var(--gold); border-color: var(--gold); color: #1a1206; font-weight: 700; }
+  select { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.12); color: #cdd5e6; border-radius: 8px; padding: 7px 9px; font: inherit; font-size: 12px; }
+  .out { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; min-height: 22px; }
+  .badge { font-size: 10px; padding: 3px 8px; border-radius: 999px; letter-spacing: .04em; }
+  .badge.flash { background: rgba(212,52,40,.22); color: #ff9c92; border: 1px solid rgba(212,52,40,.4); }
+  .badge.burst { background: rgba(230,168,23,.2); color: #ffd368; border: 1px solid rgba(230,168,23,.4); }
+  .badge.shake { background: rgba(120,200,247,.18); color: #bfe6ff; border: 1px solid rgba(120,200,247,.35); }
+  .fam { color: var(--gold); font-size: 14px; letter-spacing: .04em; }
+  .resolved { color: #4d556b; font-size: 10.5px; text-align: center; max-width: 360px; }
+  .legend { color: #59617a; font-size: 10.5px; line-height: 1.6; margin-top: 12px; }
+  .legend b { color: #8893aa; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Dijon · library dashboard</h1>
+    <span class="meta" id="meta">loading…</span>
+    <div class="ctrl">
+      <label for="zoom">card size</label>
+      <input type="range" id="zoom" min="4" max="12" step="1" value="7" />
+      <span id="zoomv" class="meta">7px</span>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="sec-head"><h2>Compositor</h2><span class="count">axes → pixels</span>
+        <span class="desc">the live spec→face mapping (the heart of the route)</span></div>
+      <div class="comp">
+        <div class="stage">
+          <div class="stagebox"><canvas id="compcanvas"></canvas></div>
+          <div class="out">
+            <div class="fam" id="compfam">—</div>
+            <div class="badges" id="compbadges"></div>
+            <div class="resolved" id="compresolved"></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="field"><span>base expression</span>
+            <select id="f-expr"></select></div>
+          <div class="field"><span>valence <b id="vval">0.0</b></span>
+            <input type="range" id="f-val" min="-1" max="1" step="0.1" value="0" /></div>
+          <div class="field"><span>arousal</span>
+            <div class="seg" id="f-arousal"></div></div>
+          <div class="field"><span>cause</span>
+            <div class="seg" id="f-cause"></div></div>
+          <div class="field"><span>expectedness</span>
+            <div class="seg" id="f-expect"></div></div>
+          <div class="field"><span>item / prop</span>
+            <select id="f-item"></select></div>
+          <div class="legend">
+            <b>valence</b> → positive vs negative ladder ·
+            <b>arousal</b> → the rung (content→pleased→thrilled) + FX intensity ·
+            <b>cause</b> → external winces red, self/user sweat or blush (never the red flash) ·
+            <b>expectedness</b> → a surprising onset throws the eyes wide.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec-base">
+      <div class="sec-head"><h2>Base dictionary</h2><span class="count" id="c-base"></span>
+        <span class="desc">the 8 feelings from lib/expressions.mjs (Route 1's contract)</span></div>
+      <div class="grid" id="grid-base"></div>
+    </section>
+
+    <section id="sec-new">
+      <div class="sec-head"><h2>New families</h2><span class="count" id="c-new"></span>
+        <span class="desc">authored this route · mustard = positive, rose = self/negative</span></div>
+      <div class="grid" id="grid-new"></div>
+    </section>
+
+    <section id="sec-items">
+      <div class="sec-head"><h2>Items</h2><span class="count" id="c-items"></span>
+        <span class="desc">every name in vocabulary.ITEMS, drawn over a working face</span></div>
+      <div class="grid" id="grid-items"></div>
+    </section>
+  </main>
+
+<script type="module">
+  import { render, sizeCanvas } from '/grid/engine.mjs';
+  import { GRID, PALETTE, compose } from '/grid/creature.mjs';
+  import { composeExpression, FAMILY, familyOf } from '/grid/compose.mjs';
+  import { EXPRESSIONS } from '/lib/expressions.mjs';
+  import { ITEMS } from '/lib/vocabulary.mjs';
+
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const CHIP = 1;                 // ~30px real footprint (GRID.w * 1 ≈ 30)
+  let BIG = 7;                    // scrubbable review size
+
+  // descriptions for the new families
+  const FAM_MEAN = {
+    content:    'calm satisfaction — the bottom rung',
+    pleased:    'a clear warm smile — mid rung',
+    thrilled:   'star-eyed grin — the top rung',
+    determined: 'resolve, NOT menace — "I’m on it"',
+    concerned:  'an EXTERNAL setback — looks out, watchful',
+    sheepish:   'a SELF slip — glances away, blushes',
+  };
+  const FAM_CLASS = { content:'pos', pleased:'pos', thrilled:'pos', determined:'pos', concerned:'self', sheepish:'self' };
+  const ITEM_MEAN = {
+    lightbulb:'an idea (planning)', hammer:'building / writing', magnifier:'searching', book:'reading',
+    terminal:'running / testing', box:'installing', globe:'fetching', question:'asking permission',
+  };
+  const ITEM_FACE = {
+    lightbulb:{eyes:'look_up',mouth:'slight_smile'}, hammer:{eyes:'lock',brows:'firm',mouth:'set'},
+    magnifier:{eyes:'look_up',mouth:'flat_skew'}, book:{eyes:'look_up',mouth:'slight_smile'},
+    terminal:{eyes:'dots',mouth:'flat_skew'}, box:{eyes:'dots',mouth:'slight_smile'},
+    globe:{eyes:'look_up',mouth:'slight_smile'}, question:{eyes:'look_up',mouth:'small'},
+  };
+
+  function specText(f) {
+    const parts = [`<b>eyes</b> ${f.eyes || 'dots'}`];
+    if (f.brows) parts.push(`<b>brows</b> ${f.brows}`);
+    parts.push(`<b>'stache</b> ${f.mouth || 'neutral'}`);
+    const acc = ['blush','flush','sweat','zzz'].filter((k) => f[k]);
+    if (acc.length) parts.push(`<b>accent</b> ${acc.join(', ')}`);
+    return parts.join(' · ');
+  }
+
+  function mkCanvas(face, props, cell) {
+    const cv = document.createElement('canvas');
+    const ctx = sizeCanvas(cv, GRID.w, GRID.h, cell, dpr);
+    render(ctx, compose(face, { props: props || [] }), PALETTE, { gridW: GRID.w, gridH: GRID.h, cell });
+    return cv;
+  }
+
+  function card({ cls, name, mean, face, props, spec }) {
+    const el = document.createElement('div'); el.className = 'card ' + cls;
+    const row = document.createElement('div'); row.className = 'row';
+    const big = document.createElement('div'); big.className = 'chip';
+    big.appendChild(mkCanvas(face, props, BIG)); big.dataset.role = 'big';
+    const chip = document.createElement('div'); chip.className = 'chip';
+    chip.appendChild(mkCanvas(face, props, CHIP)); const s = document.createElement('small'); s.textContent = '~30px'; chip.appendChild(s);
+    row.append(big, chip); el.appendChild(row);
+    const nm = document.createElement('div'); nm.className = 'name'; nm.textContent = name; el.appendChild(nm);
+    const mn = document.createElement('div'); mn.className = 'mean'; mn.textContent = mean || ''; el.appendChild(mn);
+    const sp = document.createElement('div'); sp.className = 'spec'; sp.innerHTML = spec || specText(face); el.appendChild(sp);
+    el._face = face; el._props = props || []; el._big = big;
+    return el;
+  }
+
+  // ── build the three library grids ─────────────────────────────────────────────
+  const gBase = document.getElementById('grid-base');
+  const gNew = document.getElementById('grid-new');
+  const gItems = document.getElementById('grid-items');
+  const allCards = [];
+
+  for (const ex of EXPRESSIONS) {
+    const el = card({ cls: 'base', name: `${ex.id} ${ex.apple}`, mean: ex.meaning, face: ex.face });
+    gBase.appendChild(el); allCards.push(el);
+  }
+  for (const [fam, face] of Object.entries(FAMILY)) {
+    const el = card({ cls: FAM_CLASS[fam] || 'pos', name: fam, mean: FAM_MEAN[fam], face });
+    gNew.appendChild(el); allCards.push(el);
+  }
+  for (const it of ITEMS) {
+    const el = card({ cls: 'item', name: it, mean: ITEM_MEAN[it] || '', face: ITEM_FACE[it] || { eyes:'dots', mouth:'slight_smile' }, props: [it], spec: `<b>over</b> ${ (ITEM_FACE[it]&&ITEM_FACE[it].eyes)||'dots' } · <b>prop</b> ${it}` });
+    gItems.appendChild(el); allCards.push(el);
+  }
+
+  document.getElementById('c-base').textContent = EXPRESSIONS.length + ' feelings';
+  document.getElementById('c-new').textContent = Object.keys(FAMILY).length + ' families';
+  document.getElementById('c-items').textContent = ITEMS.length + ' items';
+  document.getElementById('meta').textContent =
+    `${EXPRESSIONS.length} base · ${Object.keys(FAMILY).length} new · ${ITEMS.length} items · grid ${GRID.w}×${GRID.h}`;
+
+  // ── zoom: re-render every big canvas at the new cell size ──────────────────────
+  const zoom = document.getElementById('zoom'), zoomv = document.getElementById('zoomv');
+  zoom.addEventListener('input', () => {
+    BIG = +zoom.value; zoomv.textContent = BIG + 'px';
+    for (const el of allCards) {
+      el._big.replaceChild(mkCanvas(el._face, el._props, BIG), el._big.firstChild);
+    }
+  });
+
+  // ── compositor: interactive axes → composeExpression → live face ──────────────
+  const exprSel = document.getElementById('f-expr');
+  for (const ex of EXPRESSIONS) { const o = document.createElement('option'); o.value = ex.id; o.textContent = `${ex.id} ${ex.apple}`; exprSel.appendChild(o); }
+  const itemSel = document.getElementById('f-item');
+  for (const v of ['(none)', ...ITEMS]) { const o = document.createElement('option'); o.value = v === '(none)' ? '' : v; o.textContent = v; itemSel.appendChild(o); }
+
+  const state = { expression: 'sad', valence: -0.6, arousal: 1, cause: 'external', expectedness: 'routine', item: '' };
+  exprSel.value = state.expression;
+
+  function seg(id, values, key) {
+    const box = document.getElementById(id);
+    for (const v of values) {
+      const b = document.createElement('button'); b.textContent = String(v.label ?? v); b.dataset.val = v.val ?? v;
+      b.addEventListener('click', () => { state[key] = (v.val ?? v); syncSeg(box, key); paint(); });
+      box.appendChild(b);
+    }
+    syncSeg(box, key);
+  }
+  function syncSeg(box, key) { for (const b of box.children) b.classList.toggle('on', String(state[key]) === b.dataset.val); }
+  seg('f-arousal', [{label:'0 calm',val:0},{label:'1 active',val:1},{label:'2 intense',val:2}], 'arousal');
+  seg('f-cause', ['none','external','self','user'], 'cause');
+  seg('f-expect', ['routine','surprising'], 'expectedness');
+
+  const valR = document.getElementById('f-val'), vval = document.getElementById('vval');
+  valR.value = state.valence; vval.textContent = state.valence.toFixed(1);
+  valR.addEventListener('input', () => { state.valence = +valR.value; vval.textContent = state.valence.toFixed(1); paint(); });
+  exprSel.addEventListener('change', () => { state.expression = exprSel.value; paint(); });
+  itemSel.addEventListener('change', () => { state.item = itemSel.value; paint(); });
+
+  const compBox = document.getElementById('compcanvas');
+  function paint() {
+    const spec = { expression: state.expression, valence: state.valence, arousal: +state.arousal, cause: state.cause, expectedness: state.expectedness, item: state.item || null };
+    const { face, fx, item } = composeExpression(spec);
+    const ctx = sizeCanvas(compBox, GRID.w, GRID.h, 9, dpr);
+    // a soft red tint behind the face when the external-wince flash fires (FX is animated live in the pet)
+    render(ctx, compose(face, { props: item ? [item] : [] }), PALETTE, { gridW: GRID.w, gridH: GRID.h, cell: 9 });
+    const fam = familyOf(spec);
+    document.getElementById('compfam').textContent = fam ? `family: ${fam}` : 'base face (no fan-out)';
+    const badges = document.getElementById('compbadges'); badges.innerHTML = '';
+    for (const k of ['flash','burst','shake']) if (fx[k]) { const d = document.createElement('span'); d.className = 'badge ' + k; d.textContent = k + (k==='shake' ? ` ${(+fx[k]).toFixed(2)}` : ''); badges.appendChild(d); }
+    if (!badges.children.length) { const d = document.createElement('span'); d.className='badge'; d.style.color='#4d556b'; d.textContent='no FX'; badges.appendChild(d); }
+    document.getElementById('compresolved').innerHTML = specText(face) + (item ? ` · <b style="color:#9fd4f5">item</b> ${item}` : '');
+  }
+  paint();
+</script>
+</body>
+</html>

@@ -80,7 +80,7 @@ as they were. (A backup is written first, just in case.)
 ## How the connection works
 
 ```
-Claude Code ──hooks (curl POST /event)──▶  animayte.mjs ──SSE /events──▶  the pet overlay
+Claude Code ──hooks (node → POST /event)──▶  animayte.mjs ──SSE /events──▶  the pet overlay
             ──statusline (POST /status)─▶   (daemon :4321)  ──HTTP /health──▶  native pets
 ```
 

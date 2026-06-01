@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>animayte · appraise sim (Dijon)</title>
+<!--
+  Route 1 (Translation) simulation, rendering the REAL Dijon.
+  Type how a session SOUNDS; the real brain (lib/appraise.mjs) picks the feeling + axes,
+  the real body mapping (grid/compose.mjs) turns it into a face/FX/prop, and the REAL grid
+  renderer (grid/creature.mjs + grid/engine.mjs — imported read-only) draws Dijon reacting.
+  Serve from the repo ROOT so the /lib + /grid module imports resolve:
+      python3 -m http.server 8765      →  http://localhost:8765/test/sim.html
+-->
+<style>
+  :root { color-scheme: dark; --bg:#0a0e1a; --panel:#161a2c; --ink:#e8e8f4; --dim:#9aa0c0; --line:#272b46; --good:#7be0a6; --bad:#ff6b7a; --warm:#e6a817; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.5 ui-monospace,"SF Mono",Menlo,monospace; color:var(--ink);
+    background:radial-gradient(1200px 600px at 50% -10%, #1b2440, #0a0e1a 70%); }
+  .wrap { max-width:900px; margin:0 auto; padding:24px 18px 60px; }
+  h1 { font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:#6f7a93; margin:0 0 2px; font-weight:600; }
+  .sub { color:var(--dim); font-size:12.5px; margin-bottom:18px; }
+  .stage-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:680px){ .stage-row { grid-template-columns:1fr; } }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px; }
+  .scene { position:relative; min-height:300px; display:flex; align-items:center; justify-content:center; overflow:hidden; border-radius:10px; }
+  .scene.flash::after { content:""; position:absolute; inset:0; background:var(--bad); opacity:0; animation:flash .5s ease-out; pointer-events:none; }
+  @keyframes flash { 0%{opacity:0} 12%{opacity:.42} 100%{opacity:0} }
+  @keyframes shake { 10%,90%{transform:translateX(-2px)} 20%,80%{transform:translateX(4px)} 30%,50%,70%{transform:translateX(-8px)} 40%,60%{transform:translateX(8px)} }
+  canvas { image-rendering:pixelated; display:block; }
+  canvas.shake { animation:shake .6s cubic-bezier(.36,.07,.19,.97) both; }
+  .confetti { position:absolute; inset:0; pointer-events:none; }
+  .confetti i { position:absolute; top:-12px; width:9px; height:14px; border-radius:2px; animation:fall 1.1s linear forwards; }
+  @keyframes fall { to { transform:translateY(330px) rotate(540deg); opacity:.2 } }
+  .exp { font-size:20px; font-weight:700; display:flex; align-items:center; gap:8px; }
+  .axes { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .pill { font-size:12px; padding:4px 9px; border-radius:999px; background:#0c0f1e; border:1px solid var(--line); color:var(--dim); }
+  .pill b { color:var(--ink); font-weight:600; }
+  .gloss { color:var(--dim); font-size:13px; margin-top:10px; min-height:38px; }
+  input[type=text]{ width:100%; padding:12px 13px; border-radius:10px; border:1px solid var(--line); background:#0c0f1e; color:var(--ink); font:inherit; font-size:15px; }
+  input[type=text]:focus{ outline:none; border-color:var(--warm); }
+  .row { display:flex; gap:8px; align-items:center; margin-top:10px; flex-wrap:wrap; }
+  button { cursor:pointer; border:1px solid var(--line); background:rgba(255,255,255,.04); color:var(--ink); border-radius:9px; padding:7px 10px; font:inherit; font-size:12.5px; }
+  button:hover{ border-color:var(--warm); background:rgba(230,168,23,.14); }
+  .chip.user{ border-color:#3a6e52; } .chip.tool{ border-color:#3a5a8e; } .chip.err{ border-color:#8e3a4a; }
+  .meter { height:8px; border-radius:6px; background:#0c0f1e; border:1px solid var(--line); position:relative; margin-top:14px; }
+  .meter > span { position:absolute; top:-1px; bottom:-1px; width:3px; background:var(--warm); border-radius:2px; transition:left .4s ease, background .4s; }
+  .meterlbl { font-size:12px; color:var(--dim); margin-top:6px; }
+  .hint { font-size:12px; color:var(--dim); margin-top:14px; line-height:1.7; }
+  code { background:#0c0f1e; padding:1px 5px; border-radius:5px; color:var(--warm); }
+  .log { margin-top:14px; font-size:12px; color:var(--dim); max-height:120px; overflow:auto; }
+  .log div { padding:2px 0; border-top:1px solid var(--line); }
+  .err { color:var(--bad); white-space:pre-wrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>animayte · appraise simulation — real Dijon</h1>
+  <div class="sub">Type how a session sounds. The real <b>brain</b> (appraise) decides the feeling + axes; the real <b>body</b> (compose → grid renderer) draws Dijon reacting. Tell me where a face is wrong.</div>
+
+  <div class="stage-row">
+    <div class="card">
+      <div class="scene" id="scene">
+        <canvas id="c"></canvas>
+        <div class="confetti" id="confetti"></div>
+      </div>
+      <div id="boot" class="err"></div>
+    </div>
+    <div class="card">
+      <div class="exp"><span id="apple">🙂</span><span id="expname">neutral</span></div>
+      <div class="axes" id="axes"></div>
+      <div class="gloss" id="gloss">Say something below to begin.</div>
+      <div class="meter"><span id="moodbar" style="left:50%"></span></div>
+      <div class="meterlbl" id="moodlbl">mood meter: 0.00 (level)</div>
+    </div>
+  </div>
+
+  <div class="row" style="margin-top:16px">
+    <input type="text" id="say" placeholder="e.g.  Fixed it, all tests pass! ✅   ·   the build crashed   ·   user: thanks!   ·   tool: Edit   ·   err: ENOENT" autofocus />
+  </div>
+  <div class="row">
+    <button data-say="Let me look into the parser.">🤔 thinking</button>
+    <button data-say="Fixed it, all tests pass! ✅">😄 fixed it</button>
+    <button data-say="🚀 huge breakthrough, this is brilliant">🤩 big win</button>
+    <button data-say="the build crashed completely, fatal error">😟 hard crash</button>
+    <button data-say="a minor lint nit, no big deal">😟 minor</button>
+    <button data-say="I broke the parser with my last edit">😟 my fault</button>
+    <button class="chip user" data-say="user: thanks, that works great">🙋 thanks</button>
+    <button class="chip user" data-say="user: this is amazing, you nailed it!!">🙋 amazing!</button>
+    <button class="chip user" data-say="user: no, that's wrong">🙋 scold</button>
+    <button class="chip tool" data-say="tool: Bash npm test">🛠 test</button>
+    <button class="chip tool" data-say="tool: WebFetch">🛠 fetch</button>
+    <button class="chip err" data-say="err: ENOENT no such file">⚠ err</button>
+    <button id="reset">↺ reset history</button>
+  </div>
+  <div class="hint">
+    Forms: <code>any text</code> = the agent's words · <code>user: …</code> = the user talking to it · <code>tool: Edit</code> = a live activity · <code>err: …</code> = a tool failure.<br>
+    History is live: a slow mood meter drifts with what you type, so a setback after a winning run reads <b>surprising</b> and one amid a slump reads <b>routine</b>.
+  </div>
+  <div class="log" id="log"></div>
+</div>
+
+<script type="module">
+  const boot = document.getElementById('boot');
+  try {
+    const { appraise } = await import('/lib/appraise.mjs');
+    const { composeExpression } = await import('/grid/compose.mjs');
+    const { appleFor, byId } = await import('/lib/expressions.mjs');
+    const { createMoodMeter } = await import('/lib/anim/mood.mjs');
+    const { idleTransform, render, sizeCanvas } = await import('/grid/engine.mjs');
+    const { GRID, PALETTE, compose } = await import('/grid/creature.mjs');
+
+    const $ = (id) => document.getElementById(id);
+    const meter = createMoodMeter();
+    let prevValence = 0;
+
+    // ── real Dijon render loop ────────────────────────────────────────────────────────
+    const canvas = $('c');
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const cell = 11;
+    const ctx = sizeCanvas(canvas, GRID.w, GRID.h, cell, dpr);
+    const NEUTRAL = (byId('neutral') && byId('neutral').face) || { eyes: 'dots', mouth: 'slight_smile' };
+    let face = { ...NEUTRAL };
+    let props = [];
+    const t0 = performance.now();
+    function frame(now) {
+      const tf = idleTransform(now - t0, { breatheAmp: 0.045 });
+      const cells = compose(face, { blink: tf.blink, props });
+      render(ctx, cells, PALETTE, { gridW: GRID.w, gridH: GRID.h, cell, transform: tf });
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+
+    // ── inputs ────────────────────────────────────────────────────────────────────────
+    function signalFor(line) {
+      const t = line.trim(); let m;
+      if ((m = t.match(/^user:\s*(.+)$/is))) return { userText: m[1] };
+      if ((m = t.match(/^err(?:or)?:\s*(.+)$/is))) return { isError: true, errorText: m[1] };
+      if ((m = t.match(/^tool:\s*(\S+)\s*(.*)$/is))) return m[2] ? { tool: m[1], toolInput: { command: m[2] } } : { tool: m[1] };
+      return { recentTexts: [t] };
+    }
+    function confetti() {
+      const c = $('confetti'); c.innerHTML = '';
+      const cols = ['#ff6b7a', '#ffd24a', '#7be0a6', '#7cc4ff', '#c78bff'];
+      for (let i = 0; i < 26; i++) { const s = document.createElement('i'); s.style.left = (8 + Math.random() * 84) + '%'; s.style.background = cols[i % cols.length]; s.style.animationDelay = (Math.random() * .25) + 's'; c.appendChild(s); }
+      setTimeout(() => c.innerHTML = '', 1200);
+    }
+    function gloss(spec, body) {
+      if (!spec) return 'no feeling word — Dijon holds its current face.';
+      const b = [];
+      if (body.fx.flash) b.push('a red error-wince (external setback)');
+      if (body.face.sweat) b.push('a nervous bead — owns the slip (no red flash)');
+      if (body.face.blush) b.push('a bashful blush');
+      if (body.fx.burst) b.push('a confetti burst');
+      if (body.fx.shake) b.push(`a shake (${body.fx.shake})`);
+      if (spec.expectedness === 'surprising') b.push('caught off guard');
+      if (body.item) b.push(`holding the ${body.item}`);
+      return b.length ? b.join(' · ') : 'a calm, plain reaction';
+    }
+
+    const log = [];
+    function react(line) {
+      if (!line.trim()) return;
+      meter.decayStep();
+      const spec = appraise(signalFor(line), { valence: prevValence, mood: meter.level });
+      if (spec) { prevValence = spec.valence; meter.feel(spec.expression); }
+      const body = spec ? composeExpression(spec) : { face: null, fx: {}, item: null };
+
+      // drive the REAL renderer: swap Dijon's face + prop; play FX
+      if (body.face) { face = body.face; props = body.item ? [body.item] : []; }
+      const sc = $('scene'); sc.classList.remove('flash'); if (body.fx.flash) { void sc.offsetWidth; sc.classList.add('flash'); }
+      canvas.classList.remove('shake'); if (body.fx.shake) { void canvas.offsetWidth; canvas.classList.add('shake'); }
+      if (body.fx.burst) confetti();
+
+      $('apple').textContent = spec ? appleFor(spec.expression) : '·';
+      $('expname').textContent = spec ? spec.expression : '(no feeling — holds face)';
+      $('axes').innerHTML = spec ? [['valence', spec.valence], ['arousal', spec.arousal], ['cause', spec.cause], ['expectedness', spec.expectedness], spec.item ? ['item', spec.item] : null]
+        .filter(Boolean).map(([k, v]) => `<span class="pill">${k} <b>${v}</b></span>`).join('') : '';
+      $('gloss').textContent = gloss(spec, body);
+
+      const lvl = meter.level; $('moodbar').style.left = (50 + lvl * 48) + '%';
+      $('moodbar').style.background = lvl > 0.25 ? 'var(--good)' : lvl < -0.25 ? 'var(--bad)' : 'var(--warm)';
+      $('moodlbl').textContent = `mood meter: ${lvl.toFixed(2)} (${meter.label})`;
+
+      log.unshift(`<div>“${line}” → ${spec ? `${spec.expression} · ${spec.cause} · aro ${spec.arousal} · ${spec.expectedness}` : '(no feeling)'}</div>`);
+      $('log').innerHTML = log.slice(0, 8).join('');
+    }
+
+    document.querySelectorAll('button[data-say]').forEach((b) => b.addEventListener('click', () => { $('say').value = b.dataset.say; react(b.dataset.say); }));
+    $('reset').addEventListener('click', () => { meter.reset(); prevValence = 0; face = { ...NEUTRAL }; props = []; log.length = 0; $('log').innerHTML = ''; $('moodbar').style.left = '50%'; $('moodlbl').textContent = 'mood meter: 0.00 (level)'; $('expname').textContent = 'neutral'; $('apple').textContent = '🙂'; $('axes').innerHTML = ''; $('gloss').textContent = 'reset.'; });
+    $('say').addEventListener('keydown', (e) => { if (e.key === 'Enter') react($('say').value); });
+  } catch (e) {
+    boot.textContent = 'failed to load the renderer:\n' + (e && e.stack || e) + '\n\nServe from the repo ROOT:  python3 -m http.server 8765  → http://localhost:8765/test/sim.html';
+  }
+</script>
+</body>
+</html>

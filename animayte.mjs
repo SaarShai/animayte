@@ -353,7 +353,8 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  const rel = url.pathname === '/' ? 'animayte.html' : url.pathname.replace(/^\/+/, '');
+  // default UI = the current grid compositor pet ("Dijon"); legacy slime stays at /animayte.html
+  const rel = url.pathname === '/' ? 'grid/pet.html' : url.pathname.replace(/^\/+/, '');
   const fp = join(__dir, rel);
   if (!fp.startsWith(__dir)) { res.writeHead(403); res.end('no'); return; }
   try {

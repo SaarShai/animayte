@@ -9,23 +9,12 @@
   body { display: grid; place-items: center; font: 12px/1.3 ui-monospace, "SF Mono", Menlo, monospace; }
   #wrap { position: relative; }
   canvas { image-rendering: pixelated; display: block; }
-  /* speech bubble — small, fades out, never steals clicks */
-  #say {
-    position: absolute; left: 50%; top: -6px; transform: translate(-50%, -100%);
-    max-width: 240px; padding: 6px 10px; border-radius: 10px; white-space: nowrap;
-    background: rgba(16, 20, 32, 0.86); color: #e8ecf4; box-shadow: 0 2px 10px rgba(0,0,0,.35);
-    opacity: 0; transition: opacity .25s; pointer-events: none;
-  }
-  #say.show { opacity: 1; }
-  #pill { position: fixed; left: 8px; bottom: 6px; color: #59617a; opacity: .5; }
 </style>
 </head>
 <body>
   <div id="wrap">
-    <div id="say"></div>
     <canvas id="c"></canvas>
   </div>
-  <div id="pill">○ waiting…</div>
 
 <script type="module">
   import { createGridRuntime } from '/grid/runtime.mjs';
@@ -41,15 +30,6 @@
   }
   window.addEventListener('resize', fit); fit();
 
-  // speech bubble (daemon `say` events) — auto-hides
-  const sayEl = document.getElementById('say');
-  let sayTimer = 0;
-  function say(text, ms = 3500) {
-    if (!text) return;
-    sayEl.textContent = text; sayEl.classList.add('show');
-    clearTimeout(sayTimer); sayTimer = setTimeout(() => sayEl.classList.remove('show'), ms);
-  }
-
   // daemon SSE command → grid runtime (same vocabulary animayte.html uses)
   function dispatch(m) {
     switch (m && m.cmd) {
@@ -64,13 +44,14 @@
       case 'react': pet.reactByName(m.name); break;
       case 'endReact': pet.toIdle(); break;
       case 'sleep': pet.sleep(); break;
-      case 'say': say(m.text, m.ms); break;
+      // 'say' is intentionally ignored — the pet speaks through its face/body, not a text bubble
+      // (design guardrail: "Ambient, never Clippy"). The daemon still broadcasts say events; the
+      // overlay just doesn't render a bubble for them.
       // 'moodLevel' is intentionally ignored (grid runtime has no mood-drift tint)
     }
   }
 
   // seed from the daemon's current state, then stream live updates
-  const pill = document.getElementById('pill');
   fetch('/health').then((r) => r.json()).then((h) => {
     const s = (h && h.state) || {};
     if (typeof s.fullness === 'number') pet.setFullness(s.fullness);
@@ -81,8 +62,6 @@
 
   try {
     const es = new EventSource('/events');
-    es.onopen = () => { pill.textContent = '● live'; pill.style.color = '#19b36b'; };
-    es.onerror = () => { pill.textContent = '○ waiting…'; pill.style.color = ''; };
     es.onmessage = (e) => { try { dispatch(JSON.parse(e.data)); } catch (_) {} };
   } catch (_) {}
 

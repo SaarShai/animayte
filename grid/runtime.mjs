@@ -179,17 +179,25 @@ export function createGridRuntime(canvas, opts = {}) {
     for (let i = 0; i < n; i++) {
       const b = S.birds[i];
       const ang = now * 0.0013 + (i / n) * TAU;
-      const x = CX + Math.cos(ang) * 7 * cell;
-      const y = (BODY_TOP + 1) * cell + Math.sin(ang) * 2.4 * cell;
+      // a tight halo that HUGS the head dome (was a 7-cell radius that flung the bird ~3 cols
+      // past the dome edge into empty space, where it read as a detached amber+dark "bar").
+      const x = CX + Math.cos(ang) * 4.2 * cell;
+      const y = (BODY_TOP + 0.6) * cell + Math.sin(ang) * 2.0 * cell;
       b._x = x; b._y = y;
       const age = clamp((S.lastT - b.born) / 0.35, 0, 1); if (age < 0.12) continue;
+      // depth cue: the far (top/back) of the orbit is smaller + dimmer so it reads as "behind the
+      // head", never as floating debris; combined with age this also fades the bird in on spawn.
+      const depth = (Math.sin(ang) + 1) / 2;        // 0 = behind the crown, 1 = in front
+      const uu = Math.max(2, Math.round(u * (0.74 + 0.26 * depth)));
+      ctx.globalAlpha = age * (0.5 + 0.5 * depth);
       // a tiny mustard triangle (a baby Dijon helper)
       ctx.fillStyle = PALETTE.B;
-      ctx.fillRect(Math.round(x - u / 2), Math.round(y - u), u, u);
-      ctx.fillRect(Math.round(x - u * 1.5), Math.round(y), u * 3, u);
+      ctx.fillRect(Math.round(x - uu / 2), Math.round(y - uu), uu, uu);
+      ctx.fillRect(Math.round(x - uu * 1.5), Math.round(y), uu * 3, uu);
       ctx.fillStyle = PALETTE.D; // two dot eyes
-      ctx.fillRect(Math.round(x - u), Math.round(y), Math.max(1, u * 0.4), Math.max(1, u * 0.4));
-      ctx.fillRect(Math.round(x + u * 0.6), Math.round(y), Math.max(1, u * 0.4), Math.max(1, u * 0.4));
+      ctx.fillRect(Math.round(x - uu), Math.round(y), Math.max(1, uu * 0.4), Math.max(1, uu * 0.4));
+      ctx.fillRect(Math.round(x + uu * 0.6), Math.round(y), Math.max(1, uu * 0.4), Math.max(1, uu * 0.4));
+      ctx.globalAlpha = 1;
     }
   }
 

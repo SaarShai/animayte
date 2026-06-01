@@ -137,18 +137,10 @@ renderer-conformance contract that keeps the 3 renderers in sync:
 **[docs/renderer-runtime.md](docs/renderer-runtime.md)**. The full event→animation taxonomy:
 **[docs/animation-library.md](docs/animation-library.md)**.
 
-> **Adopting Rive (next-gen renderer).** Research ([docs/engine-research.md](docs/engine-research.md))
-> picked **Rive** (unconditional-MIT runtime, state-machine + data-binding feature-swap) to replace the
-> custom Canvas2D engine. The seam is built: the daemon stays the brain and drives a Rive `.riv` via the
-> documented contract ([docs/rive-contract.md](docs/rive-contract.md)) — the page auto-prefers Rive when a
-> `pet.riv` exists, else falls back to the pixel pet. See it now at `/rive-lab.html`. The remaining step is
-> authoring the character in the Rive editor to the contract; everything around it (runtime, driver,
-> mapping, tests, desktop hosting plan) is done.
->
 > **GPU renderer (PixiJS, code-first).** A second engine, [`lib/pixi/runtime.mjs`](lib/pixi/runtime.mjs)
 > (PixiJS v8, MIT), runs our *entire existing library* on the GPU — same state machine, manifest, palette
 > swap, props, birds — no editor needed. It's the default when a browser has WebGL; the Canvas2D engine is
-> the automatic fallback. Force an engine with **`?engine=pixi|canvas|rive`**.
+> the automatic fallback. Force an engine with **`?engine=pixi|canvas`**.
 
 ```bash
 npm run preview       # contact-sheets + clip filmstrips → tools/preview-out/ (QA the art)

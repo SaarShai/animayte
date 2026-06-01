@@ -27,7 +27,8 @@
 import { byId } from '../lib/expressions.mjs';
 
 // ── the authored family faces (feature keys live in grid/face.mjs) ────────────────
-const FAMILY = {
+// Exported so review surfaces (grid/dashboard.html) can read the families authoritatively.
+export const FAMILY = {
   // positive intensity ladder (rising arousal)
   content:    { eyes: 'closed',    mouth: 'slight_smile', blush: true },
   pleased:    { eyes: 'happy_arc', mouth: 'open_smile',   blush: true },

@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>animayte · Dijon library dashboard (live)</title>
+<style>
+  :root { color-scheme: dark; --gold:#e6a817; --rose:#ec8a7e; --blue:#9fd4f5; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; padding: 0 0 90px;
+    background: radial-gradient(1300px 800px at 50% -12%, #1b2440, #0a0e1a 72%);
+    font: 13px/1.45 ui-monospace, "SF Mono", Menlo, monospace; color: #aeb6c8; }
+
+  header { position: sticky; top: 0; z-index: 10; backdrop-filter: blur(8px);
+    background: rgba(10,14,26,.85); border-bottom: 1px solid rgba(255,255,255,.07);
+    padding: 13px 24px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  header h1 { font-size: 13px; letter-spacing: .16em; text-transform: uppercase; color: #cdd5e6; font-weight: 700; margin: 0; }
+  header .meta { color: #59617a; font-size: 11px; }
+  .live { color: #6fe09a; font-size: 10px; letter-spacing: .1em; border: 1px solid rgba(111,224,154,.4); border-radius: 999px; padding: 2px 8px; }
+  .ctrl { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .ctrl label { color: #7c869c; font-size: 11px; }
+  button.act { background: rgba(230,168,23,.12); border: 1px solid rgba(230,168,23,.4); color: var(--gold);
+    border-radius: 8px; padding: 6px 11px; font: inherit; font-size: 11px; cursor: pointer; }
+  input[type=range] { accent-color: var(--gold); }
+
+  main { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+  section { margin-top: 32px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,.06); }
+  .sec-head h2 { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: #8893aa; margin: 0; font-weight: 700; }
+  .sec-head .count { color: #4d556b; font-size: 11px; }
+  .sec-head .desc { color: #59617a; font-size: 11px; margin-left: auto; text-align: right; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(195px, 1fr)); gap: 16px; }
+  .card { background: rgba(255,255,255,.022); border: 1px solid rgba(255,255,255,.07); border-radius: 14px; padding: 12px 12px 12px; text-align: center; }
+  .card.base { border-top: 2px solid rgba(120,130,160,.5); }
+  .card.pos  { border-top: 2px solid rgba(230,168,23,.55); }
+  .card.self { border-top: 2px solid rgba(236,138,126,.6); }
+  .card.item { border-top: 2px solid rgba(120,200,247,.45); }
+  .stage { background: rgba(0,0,0,.22); border-radius: 10px; padding: 8px 4px; display: flex; justify-content: center; margin-bottom: 9px; }
+  canvas { image-rendering: pixelated; display: block; }
+  .name { color: var(--gold); font-size: 13px; letter-spacing: .03em; }
+  .card.self .name { color: var(--rose); }
+  .card.item .name { color: var(--blue); }
+  .mean { color: #7c869c; font-size: 10.5px; margin: 3px 2px 6px; min-height: 24px; }
+  .fx { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; min-height: 20px; }
+  .badge { font-size: 9.5px; padding: 2px 7px; border-radius: 999px; letter-spacing: .03em; border: 1px solid transparent; }
+  .badge.flash { background: rgba(212,52,40,.2); color: #ff9c92; border-color: rgba(212,52,40,.4); }
+  .badge.burst { background: rgba(230,168,23,.18); color: #ffd368; border-color: rgba(230,168,23,.4); }
+  .badge.shake { background: rgba(120,200,247,.16); color: #bfe6ff; border-color: rgba(120,200,247,.35); }
+  .badge.sweat { background: rgba(207,234,247,.14); color: #cfeaf7; border-color: rgba(207,234,247,.3); }
+  .badge.blush, .badge.flush { background: rgba(236,138,126,.16); color: #f3b0a6; border-color: rgba(236,138,126,.35); }
+  .badge.zzz { background: rgba(155,179,201,.16); color: #c4d3e2; border-color: rgba(155,179,201,.3); }
+  .badge.none { color: #3c4456; }
+
+  /* compositor */
+  .comp { display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start;
+    background: rgba(255,255,255,.022); border: 1px solid rgba(255,255,255,.07); border-radius: 16px; padding: 20px; }
+  .comp .left { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .comp .stagebox { background: rgba(0,0,0,.25); border-radius: 12px; padding: 16px 26px; }
+  .panel { display: flex; flex-direction: column; gap: 13px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field > span { color: #8893aa; font-size: 11px; letter-spacing: .04em; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+  .seg button { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); color: #aeb6c8;
+    border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 11px; cursor: pointer; }
+  .seg button.on { background: var(--gold); border-color: var(--gold); color: #1a1206; font-weight: 700; }
+  select { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.12); color: #cdd5e6; border-radius: 8px; padding: 7px 9px; font: inherit; font-size: 12px; }
+  .fam { color: var(--gold); font-size: 15px; letter-spacing: .04em; }
+  .resolved { color: #4d556b; font-size: 10.5px; text-align: center; max-width: 380px; }
+  .legend { color: #59617a; font-size: 10.5px; line-height: 1.6; margin-top: 8px; }
+  .legend b { color: #8893aa; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Dijon · library dashboard</h1>
+    <span class="live">● LIVE / ANIMATED</span>
+    <span class="meta" id="meta">booting…</span>
+    <div class="ctrl">
+      <button class="act" id="replay">↻ replay FX</button>
+      <label for="zoom">size</label>
+      <input type="range" id="zoom" min="4" max="11" step="1" value="7" />
+      <span id="zoomv" class="meta">7px</span>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="sec-head"><h2>Compositor</h2><span class="count">axes → pixels → animation</span>
+        <span class="desc">the live spec→face→FX mapping (the heart of the route)</span></div>
+      <div class="comp">
+        <div class="left">
+          <div class="stagebox"><canvas id="compcanvas"></canvas></div>
+          <div class="fam" id="compfam">—</div>
+          <div class="fx" id="compfx"></div>
+          <div class="resolved" id="compresolved"></div>
+        </div>
+        <div class="panel">
+          <div class="field"><span>base expression</span><select id="f-expr"></select></div>
+          <div class="field"><span>valence <b id="vval">0.0</b></span>
+            <input type="range" id="f-val" min="-1" max="1" step="0.1" value="0" /></div>
+          <div class="field"><span>arousal</span><div class="seg" id="f-arousal"></div></div>
+          <div class="field"><span>cause</span><div class="seg" id="f-cause"></div></div>
+          <div class="field"><span>expectedness</span><div class="seg" id="f-expect"></div></div>
+          <div class="field"><span>item / prop</span><select id="f-item"></select></div>
+          <div class="legend">
+            <b>valence</b> → positive vs negative ladder ·
+            <b>arousal</b> → the rung (content→pleased→thrilled) + FX intensity ·
+            <b>cause</b> → external winces red, self sweats, user blushes (never the red flash) ·
+            <b>expectedness</b> → a surprising onset throws the eyes wide.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec-new">
+      <div class="sec-head"><h2>New families</h2><span class="count" id="c-new"></span>
+        <span class="desc">authored this route · each shown firing its real FX</span></div>
+      <div class="grid" id="grid-new"></div>
+    </section>
+
+    <section id="sec-items">
+      <div class="sec-head"><h2>Items</h2><span class="count" id="c-items"></span>
+        <span class="desc">every vocabulary.ITEMS prop, breathing with the body</span></div>
+      <div class="grid" id="grid-items"></div>
+    </section>
+
+    <section id="sec-base">
+      <div class="sec-head"><h2>Base dictionary</h2><span class="count" id="c-base"></span>
+        <span class="desc">the 8 feelings from lib/expressions.mjs (Route 1's contract · reference)</span></div>
+      <div class="grid" id="grid-base"></div>
+    </section>
+  </main>
+
+<script type="module">
+  import { createGridRuntime } from '/grid/runtime.mjs';
+  import { familyOf, composeExpression, FAMILY } from '/grid/compose.mjs';
+  import { EXPRESSIONS, byId } from '/lib/expressions.mjs';
+  import { ITEMS } from '/lib/vocabulary.mjs';
+
+  window.addEventListener('error', (e) => { const m = document.getElementById('meta'); if (m) m.textContent = 'ERR: ' + (e.message || e.error); });
+  window.addEventListener('unhandledrejection', (e) => { const m = document.getElementById('meta'); if (m) m.textContent = 'REJ: ' + (e.reason && e.reason.message || e.reason); });
+
+  let CELL = 7;
+  const REPLAY_MS = 3600;
+  const cards = [];           // { rt, kind, spec }  (kind: 'spec' | 'item' | 'dict')
+
+  // representative specs that make each family fire its real FX
+  const FAM_SPEC = {
+    content:    { expression: 'happy',   valence: 0.35, arousal: 0, cause: 'none' },
+    pleased:    { expression: 'happy',   valence: 0.6,  arousal: 1, cause: 'none' },
+    thrilled:   { expression: 'excited', valence: 1.0,  arousal: 2, cause: 'none' },
+    determined: { expression: 'sad',     valence: -0.5, arousal: 1, cause: 'self' },
+    concerned:  { expression: 'sad',     valence: -0.6, arousal: 1, cause: 'external' },
+    sheepish:   { expression: 'oops',    valence: -0.4, arousal: 1, cause: 'self' },
+  };
+  const FAM_MEAN = {
+    content: 'calm satisfaction — bottom rung', pleased: 'a clear warm smile — mid rung',
+    thrilled: 'star-eyed grin + confetti — top rung', determined: 'resolve, NOT menace — "I’m on it"',
+    concerned: 'EXTERNAL setback — red wince + flinch', sheepish: 'a SELF slip — sweats, glances away',
+  };
+  const FAM_CLASS = { content:'pos', pleased:'pos', thrilled:'pos', determined:'pos', concerned:'self', sheepish:'self' };
+  const ITEM_MEAN = {
+    lightbulb:'an idea (planning)', hammer:'building / writing', magnifier:'searching', book:'reading',
+    terminal:'running / testing', box:'installing', globe:'fetching', question:'asking permission',
+  };
+
+  // what FX/accents a composed spec carries — for the badge row
+  function badgesFor(spec) {
+    const { face, fx } = composeExpression(spec);
+    const out = [];
+    if (fx.flash) out.push('flash'); if (fx.burst) out.push('burst');
+    if (fx.shake) out.push('shake'); if (face.sweat) out.push('sweat');
+    if (face.flush) out.push('flush'); else if (face.blush) out.push('blush');
+    if (face.zzz) out.push('zzz');
+    return out;
+  }
+  function renderBadges(el, list) {
+    el.innerHTML = '';
+    if (!list.length) { const b = document.createElement('span'); b.className = 'badge none'; b.textContent = 'no FX'; el.appendChild(b); return; }
+    for (const k of list) { const b = document.createElement('span'); b.className = 'badge ' + k; b.textContent = k; el.appendChild(b); }
+  }
+
+  function makeCard(parent, { cls, name, mean, drive }) {
+    const el = document.createElement('div'); el.className = 'card ' + cls;
+    const stage = document.createElement('div'); stage.className = 'stage';
+    const cv = document.createElement('canvas'); stage.appendChild(cv); el.appendChild(stage);
+    const nm = document.createElement('div'); nm.className = 'name'; nm.textContent = name; el.appendChild(nm);
+    const mn = document.createElement('div'); mn.className = 'mean'; mn.textContent = mean || ''; el.appendChild(mn);
+    const fxr = document.createElement('div'); fxr.className = 'fx'; el.appendChild(fxr);
+    parent.appendChild(el);
+
+    const rt = createGridRuntime(cv, { cell: CELL });
+    const rec = { rt, ...drive };
+    if (drive.kind === 'spec') { rt.applySpec(drive.spec); renderBadges(fxr, badgesFor(drive.spec)); }
+    else if (drive.kind === 'item') { rt.applySpec({ expression: 'neutral', item: drive.item }); renderBadges(fxr, ['prop']); fxr.firstChild.className = 'badge'; }
+    else { // dict — setIdleExpression handles all 8 (sleepy's closed eyes + zzz are in the face spec)
+      rt.sm.setIdleExpression(drive.expr);
+      const f = (byId(drive.expr) && byId(drive.expr).face) || {};
+      const list = []; if (f.flush) list.push('flush'); else if (f.blush) list.push('blush'); if (f.sweat) list.push('sweat'); if (f.zzz) list.push('zzz');
+      renderBadges(fxr, list);
+    }
+    cards.push(rec);
+  }
+
+  // ── families ──────────────────────────────────────────────────────────────────
+  const gNew = document.getElementById('grid-new');
+  for (const fam of Object.keys(FAMILY)) {
+    makeCard(gNew, { cls: FAM_CLASS[fam] || 'pos', name: fam, mean: FAM_MEAN[fam], drive: { kind: 'spec', spec: FAM_SPEC[fam] } });
+  }
+  // ── items ───────────────────────────────────────────────────────────────────────
+  const gItems = document.getElementById('grid-items');
+  for (const it of ITEMS) makeCard(gItems, { cls: 'item', name: it, mean: ITEM_MEAN[it] || '', drive: { kind: 'item', item: it } });
+  // ── base dictionary ──────────────────────────────────────────────────────────────
+  const gBase = document.getElementById('grid-base');
+  for (const ex of EXPRESSIONS) makeCard(gBase, { cls: 'base', name: `${ex.id} ${ex.apple}`, mean: ex.meaning, drive: { kind: 'dict', expr: ex.id } });
+
+  document.getElementById('c-new').textContent = Object.keys(FAMILY).length + ' families';
+  document.getElementById('c-items').textContent = ITEMS.length + ' items';
+  document.getElementById('c-base').textContent = EXPRESSIONS.length + ' feelings';
+  document.getElementById('meta').textContent = `${Object.keys(FAMILY).length} families · ${ITEMS.length} items · ${EXPRESSIONS.length} base · live runtimes`;
+
+  // ── replay FX (families re-fire flash/burst/shake; the rest idle continuously) ─────
+  function replayAll() { for (const c of cards) if (c.kind === 'spec') c.rt.applySpec(c.spec); }
+  document.getElementById('replay').addEventListener('click', replayAll);
+  setInterval(replayAll, REPLAY_MS);
+
+  // ── size slider ──────────────────────────────────────────────────────────────────
+  const zoom = document.getElementById('zoom'), zoomv = document.getElementById('zoomv');
+  zoom.addEventListener('input', () => { CELL = +zoom.value; zoomv.textContent = CELL + 'px'; for (const c of cards) c.rt.resize(CELL); compRt.resize(9); });
+
+  // ── compositor (interactive) ──────────────────────────────────────────────────────
+  const exprSel = document.getElementById('f-expr');
+  for (const ex of EXPRESSIONS) { const o = document.createElement('option'); o.value = ex.id; o.textContent = `${ex.id} ${ex.apple}`; exprSel.appendChild(o); }
+  const itemSel = document.getElementById('f-item');
+  for (const v of ['(none)', ...ITEMS]) { const o = document.createElement('option'); o.value = v === '(none)' ? '' : v; o.textContent = v; itemSel.appendChild(o); }
+
+  const state = { expression: 'sad', valence: -0.6, arousal: 1, cause: 'external', expectedness: 'routine', item: '' };
+  exprSel.value = state.expression;
+  function seg(id, values, key) {
+    const box = document.getElementById(id);
+    for (const v of values) { const b = document.createElement('button'); b.textContent = String(v.label ?? v); b.dataset.val = v.val ?? v;
+      b.addEventListener('click', () => { state[key] = (v.val ?? v); sync(box, key); paint(); }); box.appendChild(b); }
+    sync(box, key);
+  }
+  function sync(box, key) { for (const b of box.children) b.classList.toggle('on', String(state[key]) === b.dataset.val); }
+  seg('f-arousal', [{label:'0 calm',val:0},{label:'1 active',val:1},{label:'2 intense',val:2}], 'arousal');
+  seg('f-cause', ['none','external','self','user'], 'cause');
+  seg('f-expect', ['routine','surprising'], 'expectedness');
+  const valR = document.getElementById('f-val'), vval = document.getElementById('vval');
+  valR.value = state.valence; vval.textContent = (+state.valence).toFixed(1);
+  valR.addEventListener('input', () => { state.valence = +valR.value; vval.textContent = state.valence.toFixed(1); paint(); });
+  exprSel.addEventListener('change', () => { state.expression = exprSel.value; paint(); });
+  itemSel.addEventListener('change', () => { state.item = itemSel.value; paint(); });
+
+  const compRt = createGridRuntime(document.getElementById('compcanvas'), { cell: 9 });
+  function curSpec() { return { expression: state.expression, valence: +state.valence, arousal: +state.arousal, cause: state.cause, expectedness: state.expectedness, item: state.item || null }; }
+  function paint() {
+    const spec = curSpec();
+    compRt.applySpec(spec);
+    const fam = familyOf(spec);
+    document.getElementById('compfam').textContent = fam ? `family: ${fam}` : 'base face (no fan-out)';
+    renderBadges(document.getElementById('compfx'), badgesFor(spec));
+    const { face, item } = composeExpression(spec);
+    const parts = [`eyes ${face.eyes||'dots'}`]; if (face.brows) parts.push(`brows ${face.brows}`); parts.push(`'stache ${face.mouth||'neutral'}`);
+    document.getElementById('compresolved').textContent = parts.join(' · ') + (item ? ` · item ${item}` : '');
+  }
+  paint();
+  setInterval(() => { compRt.applySpec(curSpec()); }, REPLAY_MS); // keep the hero FX looping too
+</script>
+</body>
+</html>

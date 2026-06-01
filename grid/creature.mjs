@@ -18,9 +18,10 @@ export { GRID };
 
 // mustard theme + the few extra keys faces/props need (still a tight palette)
 export const PALETTE = {
-  B: '#E6A817', // body — mustard
-  S: '#F4C95D', // sheen / bulb glow — lighter mustard
-  D: '#3A2A12', // dark — eyes, mustache, brows
+  B: '#F2B01C', // body — mustard (brighter)
+  S: '#FBD468', // sheen / bulb glow — lighter mustard (brighter)
+  D: '#3A2A12', // dark — eyes, mustache
+  R: '#8F6410', // brow — dark mustard (distinct from near-black eyes, darker than body)
   W: '#FFF7E6', // glint / Zzz / bulb highlight
   P: '#EC8A7E', // blush / flush — warm rose
   C: '#CFEAF7', // sweat — cool drop

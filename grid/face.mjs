@@ -132,10 +132,11 @@ const place = (out, sprite, col, row) => {
 export function composeFace(faceSpec = {}, { blink = false } = {}) {
   let cells = [];
 
-  // brows
+  // brows — recolor to dark-mustard (R) so they don't read as a second pair of eyes
   if (faceSpec.brows && BROWS[faceSpec.brows]) {
     const b = BROWS[faceSpec.brows];
-    place(cells, b, centerCol(b.w), ROW.brows);
+    const browCells = { w: b.w, cells: b.cells.map((c) => ({ x: c.x, y: c.y, c: c.c === 'D' ? 'R' : c.c })) };
+    place(cells, browCells, centerCol(b.w), ROW.brows);
   }
 
   // eyes (blink overrides to a shut line)

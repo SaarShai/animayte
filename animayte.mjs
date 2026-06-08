@@ -41,6 +41,7 @@ const state = {
   rateLimitPct: 0, effort: null, thinking: false,
   moodLevel: 0, moodLabel: 'level',            // slow-moving mood drift (C4): up / level / stressed
   reliefSeq: 0, updated: Date.now(),
+  activeSession: null,                         // session_id of the in-focus tab — ONLY its events drive the pet
 };
 const moodMeter = createMoodMeter();
 let birdSeq = 1;
@@ -178,9 +179,28 @@ function applySentiment(recentTexts, ms = 3000) {
   return applySpec(appraise({ recentTexts }, { valence: lastValence }), ms);
 }
 
+// Single-session focus: with several Claude tabs open, every session's hooks POST here.
+// The pet can only show one face, so we lock it to the IN-FOCUS session — the one you last
+// typed into (that's the tab whose text is on screen). Switching tabs grabs focus the moment
+// you submit a prompt there; the previous session's transient visuals (birds) are dropped so
+// the old session's state never bleeds over the new one's.
+function setActiveSession(sid) {
+  if (!sid || sid === state.activeSession) return;
+  state.activeSession = sid;
+  if (state.birds.length) { state.birds = []; broadcast({ cmd: 'clearBirds' }); }
+}
+
 // ---- hook event -> pet behavior (+ real context + sentiment from agent text) ----
 async function handleEvent(ev) {
   const name = ev.hook_event_name || ev.event || ev.hookEventName || '';
+  const sid = ev.session_id || ev.sessionId || null;
+  // claim focus on a fresh prompt (a tab switch + type), or bootstrap it on the first
+  // SessionStart while nothing holds focus yet
+  if (name === 'UserPromptSubmit') setActiveSession(sid);
+  else if (name === 'SessionStart' && !state.activeSession) setActiveSession(sid);
+  // drop events from any session that isn't the one on screen
+  if (sid && state.activeSession && sid !== state.activeSession) return;
+
   if (waitTimer) { clearTimeout(waitTimer); waitTimer = null; }  // any event = activity resumed; cancel the pending wait-glance
   const tail = await readTranscriptTail(ev.transcript_path);
   if (tail && tail.ctx && !reliefActive) { state.ctxTokens = tail.ctx.tokens; state.ctxWindow = tail.ctx.win; state.ctxPct = Math.round(tail.ctx.pct * 100); setFullness(tail.ctx.pct); }
@@ -248,6 +268,8 @@ async function handleEvent(ev) {
 
 // ---- statusline snapshot -> rich state (the continuous, every-turn feed) ----
 function handleStatus(j) {
+  const sid = j.session_id || j.sessionId || null;
+  if (sid && state.activeSession && sid !== state.activeSession) return; // only the focused tab feeds ctx/cost
   const cw = j.context_window || {};
   if (typeof cw.used_percentage === 'number') { state.ctxPct = Math.round(cw.used_percentage); setFullness(cw.used_percentage / 100); }
   if (cw.context_window_size) state.ctxWindow = cw.context_window_size;

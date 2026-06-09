@@ -20,3 +20,9 @@ pets/shrimpy/
 /wiki/
 /graphify-out/
 .token-economy/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/

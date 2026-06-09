@@ -1,0 +1,7 @@
+# tree-sitter-languages 1.10.x is built against the old tree-sitter C-API (<=0.21).
+# Without this cap pip pulls tree-sitter 0.25.x and get_parser() crashes with
+# "TypeError: __init__() takes exactly 1 argument (2 given)".
+tree-sitter>=0.21,<0.22
+tree-sitter-languages>=1.10
+mcp>=0.4  # only for the MCP server entrypoint
+# tiktoken  # optional, measurement-only: required by tests/test_realistic.py

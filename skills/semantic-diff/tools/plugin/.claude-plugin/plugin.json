@@ -1,0 +1,7 @@
+{
+  "name": "semdiff",
+  "description": "AST-aware file reads with diff-on-reread. 95% token savings on large-file re-reads during editing sessions. Supports Python/JS/TS/Rust via tree-sitter.",
+  "author": {
+    "name": "Saar Shai"
+  }
+}

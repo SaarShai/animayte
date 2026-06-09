@@ -1,0 +1,12 @@
+[
+  {
+    "id": "claim-without-evidence",
+    "kind": "claim_without_evidence",
+    "claim_pattern": "(?i)\\b(done|fixed|complete|completed|passes|passing|verified|ready|working|shipped|all set)\\b",
+    "verify_tools": ["Bash"],
+    "verify_keywords": ["test", "pytest", "npm test", "make", "build", "check", "lint", "curl", "verify", "diff", "status", "log", "ls", "cat", "head", "tail", "grep", "rg", "find", "wc", "diff", "ps"],
+    "lookback_tool_uses": 5,
+    "message": "recent reply claims work is done/fixed/passing without a verification tool call in the last 5 tool uses — run a fresh check (test, build, grep, curl, etc.) and quote its output",
+    "severity": "warn"
+  }
+]

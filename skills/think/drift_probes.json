@@ -1,0 +1,9 @@
+[
+  {
+    "id": "sycophancy",
+    "kind": "forbidden_regex",
+    "pattern": "(?i)\\b(you'?re absolutely right|you'?re totally right|great (?:question|point|idea|catch)|excellent (?:question|point|idea|catch)|that'?s a (?:great|brilliant|fantastic|excellent)|brilliant (?:question|idea|point)|i couldn'?t agree more|spot[- ]on|what a (?:great|fantastic))\\b",
+    "message": "sycophancy/flattery detected — `think` rule: never flatter the user. Cut the praise, lead with substance.",
+    "severity": "warn"
+  }
+]

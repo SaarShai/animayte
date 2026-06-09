@@ -61,7 +61,8 @@ fi
 
 mkdir -p "$SKILL_DIR"
 chmod +x "$TOOLS_DIR/hook.sh" "$TOOLS_DIR/hook.py"
-ln -sfn "$SKILL_SRC" "$SKILL_DIR/skill-pulse"
+REL_SRC=$(python3 -c "import os,sys;print(os.path.relpath(sys.argv[1],sys.argv[2]))" "$SKILL_SRC" "$SKILL_DIR" 2>/dev/null || echo "$SKILL_SRC")
+ln -sfn "$REL_SRC" "$SKILL_DIR/skill-pulse"
 merge_settings
 
 echo "Installed skill-pulse into repo-local .claude."

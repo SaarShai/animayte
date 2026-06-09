@@ -61,7 +61,8 @@ fi
 
 mkdir -p "$SKILL_DIR"
 chmod +x "$TOOLS_DIR/hook.sh" "$TOOLS_DIR/hook.py" "$TOOLS_DIR/measure.py" 2>/dev/null || true
-ln -sfn "$SKILL_SRC" "$SKILL_DIR/compliance-canary"
+REL_SRC=$(python3 -c "import os,sys;print(os.path.relpath(sys.argv[1],sys.argv[2]))" "$SKILL_SRC" "$SKILL_DIR" 2>/dev/null || echo "$SKILL_SRC")
+ln -sfn "$REL_SRC" "$SKILL_DIR/compliance-canary"
 merge_settings
 
 echo "Installed compliance-canary into repo-local .claude."

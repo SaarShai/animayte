@@ -71,7 +71,8 @@ fi
 mkdir -p "$SKILL_DIR" "$AGENT_DIR"
 
 echo "[1/3] symlinking skill → $SKILL_DIR/prompt-triage"
-ln -sfn "$SKILL_SRC" "$SKILL_DIR/prompt-triage"
+REL_SRC=$(python3 -c "import os,sys;print(os.path.relpath(sys.argv[1],sys.argv[2]))" "$SKILL_SRC" "$SKILL_DIR" 2>/dev/null || echo "$SKILL_SRC")
+ln -sfn "$REL_SRC" "$SKILL_DIR/prompt-triage"
 
 echo "[2/3] copying agent definitions → $AGENT_DIR/"
 for a in "${AGENTS[@]}"; do

@@ -60,7 +60,8 @@ fi
 
 mkdir -p "$SKILL_DIR"
 chmod +x "$TOOLS_DIR/hook.sh"
-ln -sfn "$SKILL_SRC" "$SKILL_DIR/context-keeper"
+REL_SRC=$(python3 -c "import os,sys;print(os.path.relpath(sys.argv[1],sys.argv[2]))" "$SKILL_SRC" "$SKILL_DIR" 2>/dev/null || echo "$SKILL_SRC")
+ln -sfn "$REL_SRC" "$SKILL_DIR/context-keeper"
 merge_settings
 
 echo "Installed context-keeper into repo-local .claude."

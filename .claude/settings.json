@@ -1,8 +1,50 @@
 {
-  "_comment": "animayte — DEV settings for working INSIDE this repo. The statusline forwards this folder's session JSON to the local pet daemon (animayte.mjs on :4321). Hooks are intentionally NOT duplicated here: the animayte plugin (.claude-plugin → hooks/hooks.json) is the SINGLE source of the forwarding hooks, so events are never delivered twice. To get the hooks while developing, enable the animayte plugin or run `bin/animayte install`. Restart Claude Code in this folder for changes to (re)load.",
+  "_comment": "animayte \u2014 DEV settings for working INSIDE this repo. The statusline forwards this folder's session JSON to the local pet daemon (animayte.mjs on :4321). Hooks are intentionally NOT duplicated here: the animayte plugin (.claude-plugin \u2192 hooks/hooks.json) is the SINGLE source of the forwarding hooks, so events are never delivered twice. To get the hooks while developing, enable the animayte plugin or run `bin/animayte install`. Restart Claude Code in this folder for changes to (re)load.",
+  "hooks": {
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "command": "bash ./.claude/skills/context-keeper/tools/hook.sh",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "bash ./.claude/skills/compliance-canary/tools/hook.sh",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      },
+      {
+        "hooks": [
+          {
+            "command": "bash ./.claude/skills/prompt-triage/tools/hook.sh",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      },
+      {
+        "hooks": [
+          {
+            "command": "bash ./.claude/skills/skill-pulse/tools/hook.sh",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ]
+  },
   "statusLine": {
-    "type": "command",
     "command": "node \"$CLAUDE_PROJECT_DIR/bin/animayte-statusline.mjs\"",
-    "padding": 0
+    "padding": 0,
+    "type": "command"
   }
 }

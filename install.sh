@@ -48,7 +48,14 @@ run() {
 
 link() {
   local target="$1" linkname="$2"
-  if [ -L "$linkname" ] && [ "$(readlink "$linkname")" = "$target" ]; then
+  # Write a RELATIVE symlink so the repo stays portable across checkouts/
+  # machines (an absolute target like /Users/you/proj/skills/x breaks on any
+  # other clone). target is an absolute path under the repo; express it
+  # relative to the link's own directory. Falls back to absolute only if
+  # python3 is unavailable.
+  local rel
+  rel=$(python3 -c "import os,sys;print(os.path.relpath(sys.argv[1].rstrip('/'), os.path.dirname(sys.argv[2])))" "$target" "$linkname" 2>/dev/null) || rel="$target"
+  if [ -L "$linkname" ] && [ "$(readlink "$linkname")" = "$rel" ]; then
     echo "    [skip] $linkname (already linked)"
     return 0
   fi
@@ -56,8 +63,8 @@ link() {
     echo "    [warn] $linkname exists and is not a symlink — leaving it" >&2
     return 0
   fi
-  run "ln -sfn '$target' '$linkname'"
-  echo "    [link] $linkname → $target"
+  run "ln -sfn '$rel' '$linkname'"
+  echo "    [link] $linkname → $rel"
 }
 
 # --- Resident skills catalog ---------------------------------------------

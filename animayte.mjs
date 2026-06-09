@@ -215,7 +215,9 @@ async function handleEvent(ev) {
         applySpec(spec, 3200);
         if (spec.valence > 0) say(spec.expression === 'excited' ? '🤩 aw — thank you!' : '😊 aw, thanks!');
         else say(spec.expression === 'embarrassed' ? '🙈 sorry — let me fix that' : '😅 my bad — on it');
-      } else { setMood('thinking'); say('👀 reading your request…'); }
+      } else { setMood('thinking'); broadcast({ cmd: 'react', name: 'Reading' }); say('👀 reading your request…'); }
+      // ^ instant, visible "engaged" cue the moment you hit enter — the settled emotion
+      //   still lands at Stop (turn end), but the pet no longer sits frozen until then
       break;
     }
     case 'PreToolUse': {

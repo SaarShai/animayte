@@ -1,0 +1,17 @@
+[
+  {
+    "id": "filler-phrases",
+    "kind": "forbidden_regex",
+    "pattern": "(?i)\\b(certainly|absolutely|of course|sounds good|got it|great question|excellent|i'?d be happy to|i'?ll go ahead|let me know if you|feel free to|please don'?t hesitate|i hope this helps|happy to help|no worries|sure thing)\\b",
+    "message": "filler/pleasantry phrase detected in recent reply — drop hedges, affirmations, soft closings",
+    "severity": "warn"
+  },
+  {
+    "id": "word-creep",
+    "kind": "word_count_per_message",
+    "threshold": 120,
+    "window": 3,
+    "message": "average words/message climbing past caveman-ultra budget — tighten next reply",
+    "severity": "warn"
+  }
+]

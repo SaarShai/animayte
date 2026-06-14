@@ -11,7 +11,19 @@ from tokens import estimate_tokens
 
 CODE_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".sh", ".bash", ".zsh"}
 SKIP_PARTS = {".git", ".brainer", "__pycache__", ".pytest_cache", "node_modules", ".venv", "venv", "dist", "build"}
-IMPORT_RE = re.compile(r"^\s*(?:from\s+([\w.]+)\s+import|import\s+([\w.,\s{}*]+)|(?:const|let|var)\s+.*=\s+require\(['\"]([^'\"]+)['\"]\))", re.MULTILINE)
+# Group 1: python `from X import`; group 2: python `import X[, Y]`; group 3: JS/TS
+# module specifier from `import/from '...'` or `require('...')`. The old single
+# class `[\w.,\s{}*]` spanned across `{ } from` and swallowed ES6 specifiers as
+# junk (e.g. "{ Foo } from "); quoting the JS target captures it correctly and
+# keeps each alternative single-line (no `\s`-in-class cross-line spanning).
+IMPORT_RE = re.compile(
+    r"^\s*(?:"
+    r"from\s+([\w.]+)\s+import"
+    r"|import\s+([\w.](?:[\w., ]*[\w.])?)\s*$"
+    r"|(?:import\s+|.*\bfrom\s+|.*\brequire\s*\(\s*)['\"]([^'\"]+)['\"]"
+    r")",
+    re.MULTILINE,
+)
 JS_SYMBOL_RE = re.compile(
     r"^\s*(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(|^\s*(?:export\s+)?(?:class|interface|type)\s+([A-Za-z_$][\w$]*)|^\s*(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=",
     re.MULTILINE,

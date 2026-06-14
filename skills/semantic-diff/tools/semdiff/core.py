@@ -76,18 +76,55 @@ def _node_name(node, source: bytes, kind_map) -> Optional[str]:
     return source[child.start_byte:child.end_byte].decode("utf-8", "replace")
 
 
-_COMMENT_RE = {
-    "python": b"#[^\n]*",
-    "javascript": b"//[^\n]*|/\\*[\\s\\S]*?\\*/",
-    "typescript": b"//[^\n]*|/\\*[\\s\\S]*?\\*/",
-    "rust": b"//[^\n]*|/\\*[\\s\\S]*?\\*/",
-}
+def _strip_comment_bytes(node, source: bytes) -> bytes:
+    """Comment-stripped body of an AST node, using tree-sitter comment NODES.
 
-def _strip_comments(body: bytes, lang: str) -> bytes:
-    import re as _re
-    pat = _COMMENT_RE.get(lang)
-    if not pat: return body
-    return _re.sub(pat, b"", body).strip()
+    The previous flat regex (`#...`, `//...`, `/* */`) was not string-aware, so a
+    comment marker INSIDE a string literal (e.g. a URL `"http://x"` or `"#ff0000"`)
+    was stripped — collapsing genuinely-different bodies to the same hash and
+    hiding real changes under ignore_comments=True. tree-sitter knows what is a
+    comment vs a string, so masking comment node spans is correct across langs
+    (python `comment`, js/ts `comment`, rust `line_comment`/`block_comment`).
+    """
+    base = node.start_byte
+    body = source[node.start_byte:node.end_byte]
+    spans: list[tuple[int, int]] = []
+
+    def walk(n):
+        if "comment" in n.type:
+            spans.append((n.start_byte - base, n.end_byte - base))
+        for c in n.children:
+            walk(c)
+
+    walk(node)
+    if not spans:
+        return body.strip()
+    spans.sort()
+    out = bytearray()
+    cursor = 0
+    for s, e in spans:
+        if s > cursor:
+            out += body[cursor:s]
+        cursor = max(cursor, e)
+    if cursor < len(body):
+        out += body[cursor:]
+    return bytes(out).strip()
+
+
+def _header_slice(parent: "Node", nodes: list["Node"]) -> str | None:
+    """Declaration/header region of a parent: its bytes up to the first direct
+    member. Returns None if the parent has no direct member node (then the caller
+    falls back to rendering the full body). Used to surface class-level changes
+    without re-dumping member bodies that are emitted separately."""
+    pref = parent.name + "."
+    kids = [n for n in nodes
+            if n.name.startswith(pref) and "." not in n.name[len(pref):]]
+    if not kids:
+        return None
+    cut = min(n.start for n in kids) - parent.start
+    if cut <= 0:
+        return None
+    return parent.source[:cut].decode("utf-8", "replace").rstrip()
 
 
 def extract_nodes(source: bytes, lang: str, ignore_comments: bool = False) -> list[Node]:
@@ -108,7 +145,7 @@ def extract_nodes(source: bytes, lang: str, ignore_comments: bool = False) -> li
                 if nm:
                     qname = f"{prefix}{nm}" if prefix else nm
                     body = source[child.start_byte:child.end_byte]
-                    hash_body = _strip_comments(body, lang) if ignore_comments else body
+                    hash_body = _strip_comment_bytes(child, source) if ignore_comments else body
                     h = hashlib.sha1(hash_body).hexdigest()[:12]
                     out.append(Node(
                         name=qname, kind=child.type,
@@ -216,15 +253,17 @@ def render_diff(path: str | Path, prev: dict[str, str]) -> tuple[str, dict]:
 
     # emit changed + added in file order
     emit_set = set(changed) | set(added)
-    # Dedupe parent/child: if a child is in emit_set, drop the parent (class/impl)
-    # since we'd re-emit its children anyway.
-    child_parents = {n.rsplit(".", 1)[0] for n in emit_set if "." in n}
-    # For each parent in emit_set, check if we have any children — if so, skip parent unless it's only the header that changed
-    def skip_parent(name):
-        # skip if any other emit node has this name as prefix
+    # A parent (class/impl) whose members are emitted separately is rendered
+    # HEADER-ONLY (declaration + leading class-level lines, up to the first
+    # member) instead of its full body. This avoids re-dumping member bodies
+    # while still surfacing class-level changes — a changed base class, decorator,
+    # leading class constant, or a brand-new class's signature. The old code
+    # deleted such parents from emit_set entirely, silently dropping every
+    # class-level change whenever a member also changed.
+    def has_emitted_member(name):
         pref = name + "."
         return any(other != name and other.startswith(pref) for other in emit_set)
-    emit_set = {n for n in emit_set if not skip_parent(n)}
+    header_only = {n for n in emit_set if has_emitted_member(n)}
     emit = [n for n in nodes if n.name in emit_set]
     emit.sort(key=lambda n: n.start)
 
@@ -246,10 +285,18 @@ def render_diff(path: str | Path, prev: dict[str, str]) -> tuple[str, dict]:
             lines.append("")
 
         tag = "ADDED" if n.name in added else "CHANGED"
-        lines.append(f"// --- {tag}: {n.name} (L{n.line_start}-{n.line_end}) ---")
-        lines.append(n.source.decode("utf-8", "replace"))
-        lines.append("")
-        last_end_line = n.line_end
+        hdr = _header_slice(n, nodes) if n.name in header_only else None
+        if hdr is not None:
+            lines.append(f"// --- {tag}: {n.name} (header; members below) (L{n.line_start}) ---")
+            lines.append(hdr)
+            lines.append("")
+            # advance only past the header so members between aren't over-stubbed
+            last_end_line = n.line_start
+        else:
+            lines.append(f"// --- {tag}: {n.name} (L{n.line_start}-{n.line_end}) ---")
+            lines.append(n.source.decode("utf-8", "replace"))
+            lines.append("")
+            last_end_line = n.line_end
 
     # trailing unchanged stub
     trailing = [u for u in nodes if u.name in unchanged_set and u.line_start > last_end_line]

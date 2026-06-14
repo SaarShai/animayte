@@ -11,6 +11,7 @@
     "kind": "word_count_per_message",
     "threshold": 120,
     "window": 3,
+    "warrant_pattern": "(?i)\\b(explain|elaborate|detail|in[ -]?depth|deep[ -]?dive|walk me through|comprehensive|thorough(ly)?|step[ -]by[ -]step|summar(y|ize|ise)|overview|report|break ?down|compare|pros and cons|brainstorm|think (of|about|through)|tell me (what|how|why|about|everything)|list( me)? (\\d|at least|the|all|every)|\\d+ (ways|ideas|options|reasons|examples|things)|why (does|do|is|are|did))\\b",
     "message": "average words/message climbing past caveman-ultra budget — tighten next reply",
     "severity": "warn"
   }

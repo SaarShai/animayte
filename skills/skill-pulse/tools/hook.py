@@ -139,7 +139,7 @@ def gc_old_state(dir_path: Path, now: float) -> int:
     return removed
 
 
-_FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
+_FRONTMATTER_RE = re.compile(r"^﻿?---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 
 def parse_frontmatter(text: str) -> dict:

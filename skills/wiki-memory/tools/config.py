@@ -99,8 +99,31 @@ def load_simple_yaml(path: Path) -> dict[str, Any]:
             key, value = line.split(":", 1)
             current_key = key.strip()
             value = value.strip()
-            data[current_key] = [] if value == "" else parse_scalar(value)
+            # An empty value is NOT an empty list — it means "key present, no
+            # inline value". Block-style list items (if any) attach below via
+            # setdefault; otherwise the key falls through to its typed default in
+            # load_config. Forcing [] here made `refresh_threshold:` parse as []
+            # and crash float([]), and flipped bool defaults via bool([]).
+            if value != "":
+                data[current_key] = parse_scalar(value)
     return data
+
+
+def _as_float(value: Any, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _as_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        return [value] if value.strip() else []
+    return [value]
 
 
 def load_config(repo_root: str | Path | None = None) -> Config:
@@ -120,13 +143,13 @@ def load_config(repo_root: str | Path | None = None) -> Config:
         config_path=path,
         agent_adapter=str(raw.get("agent_adapter", "auto")),
         context_max_tokens=raw.get("context_max_tokens", "auto"),
-        refresh_threshold=float(raw.get("refresh_threshold", 0.20)),
+        refresh_threshold=_as_float(raw.get("refresh_threshold", 0.20), 0.20),
         default_scope=str(raw.get("default_scope", "project")),
         profile=str(raw.get("profile", "ultra")),
         reasoning_effort=str(raw.get("reasoning_effort", "high")),
         reply_style=str(raw.get("reply_style", "ultra")),
         model_registry=model_registry,
-        external_adapters=raw.get("external_adapters", []) or [],
+        external_adapters=_as_list(raw.get("external_adapters")),
         output_filter_archive=bool(raw.get("output_filter_archive", True)),
         output_filter_session_aware=bool(raw.get("output_filter_session_aware", False)),
         output_filter_rules=output_filter_rules,

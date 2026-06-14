@@ -258,7 +258,7 @@ def render_markdown(regex_out, llm_out, session_id, transcript_path):
     return "\n".join(lines)
 
 
-_FM_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
+_FM_RE = re.compile(r"^﻿?---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 
 def _parse_frontmatter(text):

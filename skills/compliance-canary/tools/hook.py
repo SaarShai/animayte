@@ -12,7 +12,8 @@ Per-skill probes are declared in `<.claude/skills>/<name>/drift_probes.json`:
     {"kind": "forbidden_regex", "pattern": "(?i)\\b(certainly|absolutely)\\b",
      "id": "filler", "severity": "warn"},
     {"kind": "word_count_per_message", "threshold": 80, "window": 3,
-     "id": "creep"},
+     "id": "creep",
+     "warrant_pattern": r"(?i)\b(explain|elaborate|detail|in[ -]?depth|deep[ -]?dive|walk me through|comprehensive|thorough(ly)?|step[ -]by[ -]step|summar(y|ize|ise)|overview|report|break ?down|compare|pros and cons|brainstorm|think (of|about|through)|tell me (what|how|why|about|everything)|list( me)? (\d|at least|the|all|every)|\d+ (ways|ideas|options|reasons|examples|things)|why (does|do|is|are|did))\b"},
     {"kind": "claim_without_evidence",
      "claim_pattern": "(?i)\\b(done|fixed|passes)\\b",
      "verify_tools": ["Bash"],
@@ -95,6 +96,11 @@ def skills_root() -> Path:
 def state_lock(path: Path):
     lock_path = path.with_suffix(path.suffix + ".lock")
     fh = None
+    # Setup (mkdir/open/flock) is best-effort: on failure we log and proceed
+    # lockless rather than blocking the user's prompt. This is a SEPARATE try
+    # from the yield — a body exception must propagate cleanly, not be caught
+    # here (which would double-yield and corrupt the generator protocol,
+    # raising RuntimeError and breaking the always-exit-0 contract).
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         fh = open(lock_path, "a+")
@@ -102,9 +108,15 @@ def state_lock(path: Path):
             fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
         except (OSError, AttributeError) as e:
             log_err(f"lock-skip path={lock_path} err={e!r}")
-        yield
     except Exception as e:
         log_err(f"lock-open-fail path={lock_path} err={e!r}")
+        if fh is not None:
+            try:
+                fh.close()
+            except Exception:
+                pass
+            fh = None
+    try:
         yield
     finally:
         if fh is not None:
@@ -195,24 +207,44 @@ def discover_probes(root: Path) -> list[dict]:
 # -------------------------- transcript reading ------------------------------
 
 def read_transcript_tail(path: str, cap: int = TRANSCRIPT_LINE_CAP) -> list[dict]:
-    """Return up to `cap` most-recent parseable JSONL events from the transcript."""
+    """Return up to `cap` most-recent parseable JSONL events from the transcript.
+
+    TWIN: context-keeper/tools/extract.py:iter_events shares the same
+    malformed-line guard — keep both in sync. (This copy byte-tails + caps for a
+    hot per-prompt path; the twin streams the whole file for a cold PreCompact.)"""
     if not path:
         return []
     p = Path(path)
     if not p.is_file():
         return []
+    # Byte-tail read (codex round-3): readlines() loaded the WHOLE transcript
+    # on every hook fire — O(file) memory on a hot path. Seek to the last
+    # TAIL_BYTES instead; transcripts only grow, the cap only needs the tail.
+    TAIL_BYTES = 8_000_000
     try:
-        with open(p, "r", encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
+        size = p.stat().st_size
+        with open(p, "rb") as f:
+            if size > TAIL_BYTES:
+                f.seek(size - TAIL_BYTES)
+                f.readline()  # drop the partial line at the seek point
+            raw = f.read().decode("utf-8", errors="replace")
     except OSError as e:
         log_err(f"transcript-read-fail path={path} err={e!r}")
         return []
     events: list[dict] = []
-    for line in lines[-cap:]:
+    for line in raw.splitlines()[-cap:]:
         try:
-            events.append(json.loads(line))
+            obj = json.loads(line)
         except json.JSONDecodeError:
             continue
+        # Parseable-but-malformed guard (codex round-3): a line like `123` or
+        # {"message": "bad"} crashed detectors via .get() on non-dicts —
+        # violating the always-exit-0 contract. Normalize here, once.
+        if not isinstance(obj, dict):
+            continue
+        if "message" in obj and not isinstance(obj["message"], dict):
+            obj["message"] = {}
+        events.append(obj)
     return events
 
 
@@ -262,9 +294,49 @@ def recent_tool_uses(events: list[dict], n: int = 10) -> list[dict]:
     return out
 
 
+def _tool_result_text(content) -> str:
+    """tool_result content is a string OR a list of blocks ({type:text,...});
+    stringifying the list literal makes regexes brittle (codex review
+    2026-06-12) — join the text fields instead."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for c in content:
+            if isinstance(c, dict):
+                parts.append(str(c.get("text") or c.get("content") or ""))
+            else:
+                parts.append(str(c))
+        return " ".join(p for p in parts if p)
+    return str(content or "")
+
+
+def recent_tool_errors(events: list[dict], n: int = 30) -> list[str]:
+    """Return up to n most-recent is_error tool_result texts, oldest-first.
+    Tool errors live in user-type events (content blocks {type: tool_result,
+    is_error: true}) — invisible to the assistant-message detectors above."""
+    out: list[str] = []
+    for e in reversed(events):
+        if e.get("type") != "user":
+            continue
+        msg = e.get("message") or {}
+        content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+        for b in content[::-1]:
+            if isinstance(b, dict) and b.get("type") == "tool_result" and b.get("is_error"):
+                out.append(_tool_result_text(b.get("content"))[:400])
+                if len(out) >= n:
+                    break
+        if len(out) >= n:
+            break
+    out.reverse()
+    return out
+
+
 # -------------------------- detectors --------------------------------------
 
-def detect_forbidden_regex(probe: dict, messages: list[dict], _tool_uses) -> dict | None:
+def detect_forbidden_regex(probe: dict, messages: list[dict], _tool_uses, _tool_errors=None, user_prompt: str = "", traj_stats: dict | None = None) -> dict | None:
     pat_str = probe.get("pattern")
     if not pat_str:
         return None
@@ -286,15 +358,31 @@ def detect_forbidden_regex(probe: dict, messages: list[dict], _tool_uses) -> dic
     return None
 
 
-def detect_word_count_per_message(probe: dict, messages: list[dict], _tool_uses) -> dict | None:
+def detect_word_count_per_message(probe: dict, messages: list[dict], _tool_uses, _tool_errors=None, user_prompt: str = "", traj_stats: dict | None = None) -> dict | None:
     if not messages:
         return None
     threshold = float(probe.get("threshold", 80))
-    window = min(int(probe.get("window", MSG_WINDOW_DEFAULT)), len(messages))
+    # Clamp window to [1, len(messages)]: window=0 would make messages[-0:] the
+    # WHOLE list (a silent off-by-everything), and a negative window is nonsense.
+    window = max(1, min(int(probe.get("window", MSG_WINDOW_DEFAULT)), len(messages)))
     recent = messages[-window:]
     counts = [len(m["text"].split()) for m in recent]
     avg = sum(counts) / len(counts)
     if avg > threshold:
+        # Request-warranted length: this warning governs the NEXT reply
+        # ("tighten next reply"), so suppress it when the imminent prompt
+        # explicitly asks for detail/depth/enumeration. caveman-ultra's own spec
+        # is "keep replies short UNLESS detail is requested" — without this the
+        # probe nags against a reply the skill itself permits (an explicit
+        # "explain"/"summarize"/"think of N ways" turn). Opt-in per probe via
+        # `warrant_pattern`; absent → always fires (prior behavior).
+        warrant = probe.get("warrant_pattern")
+        if warrant and user_prompt:
+            try:
+                if re.search(warrant, user_prompt):
+                    return None
+            except re.error as e:
+                log_err(f"bad-warrant-regex probe={probe.get('_probe_id')} err={e!r}")
         return {
             "avg_words": round(avg, 1),
             "threshold": threshold,
@@ -304,7 +392,7 @@ def detect_word_count_per_message(probe: dict, messages: list[dict], _tool_uses)
     return None
 
 
-def detect_claim_without_evidence(probe: dict, messages: list[dict], tool_uses: list[dict]) -> dict | None:
+def detect_claim_without_evidence(probe: dict, messages: list[dict], tool_uses: list[dict], _tool_errors=None, user_prompt: str = "", traj_stats: dict | None = None) -> dict | None:
     if not messages:
         return None
     last_text = messages[-1]["text"]
@@ -322,6 +410,13 @@ def detect_claim_without_evidence(probe: dict, messages: list[dict], tool_uses: 
         "verify_keywords",
         ["test", "pytest", "make", "build", "check", "lint", "curl", "verify"],
     )]
+    # Word-boundary match, not plain substring: short keywords (ls, cat, wc, rg)
+    # otherwise match inside unrelated words (results, category, rebuild), so an
+    # incidental Bash command falsely counts as verification and the done-claim
+    # warning is wrongly suppressed.
+    verify_re = None
+    if verify_keywords:
+        verify_re = re.compile(r"\b(" + "|".join(re.escape(k) for k in verify_keywords) + r")\b")
     try:
         lookback = int(probe.get("lookback_tool_uses", 5))
     except (TypeError, ValueError):
@@ -336,7 +431,7 @@ def detect_claim_without_evidence(probe: dict, messages: list[dict], tool_uses: 
         else:
             haystack_parts.append(json.dumps(tu["input"]))
         haystack = " ".join(haystack_parts).lower()
-        if any(kw in haystack for kw in verify_keywords):
+        if verify_re is not None and verify_re.search(haystack):
             return None  # evidence found
     return {
         "claim": claim_match.group(0),
@@ -345,11 +440,109 @@ def detect_claim_without_evidence(probe: dict, messages: list[dict], tool_uses: 
     }
 
 
+def detect_repeated_tool_error(probe: dict, _messages, _tool_uses, tool_errors=None, user_prompt: str = "", traj_stats: dict | None = None) -> dict | None:
+    """Fire when the same tool-error signature recurs in the recent window.
+    Transcript mining (2026-06-12) found one signature — 'File has not been
+    read yet' — accounted for 15 of 18 tool errors across 5 sessions; the
+    native harness error corrects each instance but nothing breaks the habit
+    within a session. Generic: any drift_probes.json can declare a pattern."""
+    if not tool_errors:
+        return None
+    pat_str = probe.get("pattern")
+    if not pat_str:
+        return None
+    try:
+        pat = re.compile(pat_str)
+    except re.error as e:
+        log_err(f"bad-regex probe={probe.get('_probe_id')} err={e!r}")
+        return None
+    min_count = int(probe.get("min_count", 2))
+    hits = [t for t in tool_errors if pat.search(t)]
+    if len(hits) >= min_count:
+        return {
+            "count": len(hits),
+            "min_count": min_count,
+            "example": hits[-1][:120].replace("\n", " "),
+        }
+    return None
+
+
+def trajectory_stats(events: list[dict]) -> dict:
+    """Tool-call vs tool-error counts over the SAME transcript tail, so a
+    rate is well-defined (recent_tool_uses/errors use different caps).
+    Adopted from HTC-style trajectory calibration (arXiv 2601.15778) in the
+    cheapest form that pays: process-level error rate, no model, no training."""
+    calls = errs = 0
+    for e in events:
+        msg = e.get("message") or {}
+        content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+        for b in content:
+            if not isinstance(b, dict):
+                continue
+            if e.get("type") == "assistant" and b.get("type") == "tool_use":
+                calls += 1
+            elif e.get("type") == "user" and b.get("type") == "tool_result" and b.get("is_error"):
+                errs += 1
+    return {"tool_calls": calls, "tool_errors": errs}
+
+
+def detect_trajectory_drift(probe: dict, _messages, _tool_uses, _tool_errors=None,
+                            user_prompt: str = "", traj_stats: dict | None = None) -> dict | None:
+    """Fire when the session's tool-error RATE crosses a threshold — catches
+    error-loop drift that per-signature probes (repeated_tool_error) miss
+    when each retry fails differently. min_tool_calls guards cold starts."""
+    if not traj_stats:
+        return None
+    calls = traj_stats.get("tool_calls", 0)
+    errs = traj_stats.get("tool_errors", 0)
+    min_calls = int(probe.get("min_tool_calls", 8))
+    max_rate = float(probe.get("max_error_rate", 0.25))
+    if calls < min_calls:
+        return None
+    rate = errs / calls
+    if rate >= max_rate:
+        return {"tool_calls": calls, "tool_errors": errs,
+                "rate": round(rate, 3), "threshold": max_rate}
+    return None
+
+
 DETECTORS = {
     "forbidden_regex": detect_forbidden_regex,
     "word_count_per_message": detect_word_count_per_message,
     "claim_without_evidence": detect_claim_without_evidence,
+    "repeated_tool_error": detect_repeated_tool_error,
+    "trajectory_drift": detect_trajectory_drift,
 }
+
+
+def detect_user_correction(probe: dict, _messages, _tool_uses, _tool_errors=None,
+                           user_prompt: str = "", traj_stats: dict | None = None) -> dict | None:
+    """Fire when the user's CURRENT prompt is a correction ("no, use X",
+    "that's wrong", "I said ..."). Closes the correction-capture gap
+    (lineage: BayramAnnakov/claude-reflect, flagged in INSPIRATION.md):
+    corrections are the highest-value learning source (exp1: feedback lift
+    +0.667, the largest of the three) but the harvest reflex is prose-only —
+    this makes the trigger mechanical, at the exact turn the correction lands."""
+    if not user_prompt:
+        return None
+    pat_str = probe.get("pattern")
+    if not pat_str:
+        return None
+    try:
+        pat = re.compile(pat_str)
+    except re.error as e:
+        log_err(f"bad-regex probe={probe.get('_probe_id')} err={e!r}")
+        return None
+    m = pat.search(user_prompt)
+    if m:
+        return {"matched": m.group(0),
+                "snippet": user_prompt[max(0, m.start() - 10): m.end() + 50].replace("\n", " ")}
+    return None
+
+
+DETECTORS["user_correction"] = detect_user_correction
 
 
 def run_probes(
@@ -357,6 +550,9 @@ def run_probes(
     messages: list[dict],
     tool_uses: list[dict],
     suppressed: set[str],
+    tool_errors: list[str] | None = None,
+    user_prompt: str = "",
+    traj_stats: dict | None = None,
 ) -> list[dict]:
     """Returns list of fired probes (each dict has _skill, _probe_id, _result)."""
     fired: list[dict] = []
@@ -367,7 +563,7 @@ def run_probes(
         if probe["_probe_id"] in suppressed:
             continue
         try:
-            result = DETECTORS[kind](probe, messages, tool_uses)
+            result = DETECTORS[kind](probe, messages, tool_uses, tool_errors, user_prompt=user_prompt, traj_stats=traj_stats)
         except Exception as e:
             log_err(f"detector-fail probe={probe['_probe_id']} err={e!r}")
             continue
@@ -463,10 +659,25 @@ def main() -> int:
     if not events:
         return 0
 
-    messages = recent_assistant_messages(events, MSG_WINDOW_DEFAULT)
-    if not messages:
-        return 0
+    # Fetch enough messages for the LARGEST declared word_count window — and
+    # never early-return on empty: tool_use-only turns (the norm during error
+    # loops) have no assistant TEXT, but that's exactly when the non-text
+    # detectors (trajectory_drift, repeated_tool_error, user_correction) must
+    # still run. The text detectors already no-op on []. (probes are discovered
+    # above, so reading their windows here is safe.)
+    WORD_COUNT_WINDOW_CAP = 50
+    max_window = max(
+        [MSG_WINDOW_DEFAULT]
+        + [
+            min(int(p.get("window", MSG_WINDOW_DEFAULT)), WORD_COUNT_WINDOW_CAP)
+            for p in probes
+            if p.get("kind") == "word_count_per_message"
+            and str(p.get("window", MSG_WINDOW_DEFAULT)).lstrip("-").isdigit()
+        ]
+    )
+    messages = recent_assistant_messages(events, max_window) or []
     tool_uses = recent_tool_uses(events, n=10)
+    tool_errors = recent_tool_errors(events)
 
     # Build suppression set from probe_history
     history = state.get("probe_history", [])
@@ -476,7 +687,9 @@ def main() -> int:
         and turn - int(h.get("fired_at_turn", 0)) < cooldown
     }
 
-    fired = run_probes(probes, messages, tool_uses, suppressed)
+    fired = run_probes(probes, messages, tool_uses, suppressed, tool_errors,
+                       user_prompt=str(payload.get("prompt") or ""),
+                       traj_stats=trajectory_stats(events))
     if not fired:
         return 0
 
